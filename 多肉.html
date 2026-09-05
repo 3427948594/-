@@ -1,0 +1,954 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>择西里 · 多肉 · 扎根与收成</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --soil: #1a1510;
+      --soil-light: #2a2018;
+      --gold: #c9b876;
+      --gold-dim: #7a6a4a;
+      --gold-bright: #e8d5a0;
+      --ink: #0a0806;
+      --paper: #f5f0e8;
+      --jade: #5a7a6a;
+      --red: #8a3a3a;
+      --purple: #7a5a8a;
+      --leaf-green: #4a7a5a;
+      --leaf-light: #6a9a7a;
+    }
+    body {
+      min-height: 100vh;
+      background: var(--ink);
+      font-family: 'Noto Serif SC', serif;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: var(--gold);
+      user-select: none;
+      padding: 0 12px 12px 12px;
+    }
+    .bg-pattern {
+      position: fixed; inset: 0; opacity: 0.02;
+      background-image: radial-gradient(circle at 20% 50%, var(--gold) 1px, transparent 1px),
+                        radial-gradient(circle at 80% 50%, var(--gold) 1px, transparent 1px);
+      background-size: 80px 80px;
+      pointer-events: none; z-index: 0;
+    }
+    .header {
+      width: 100%; max-width: 1200px; display: flex;
+      justify-content: space-between; align-items: center;
+      padding: 10px 0 6px 0; z-index: 10;
+      border-bottom: 1px solid rgba(201, 184, 118, 0.08); flex-shrink: 0;
+    }
+    .header h1 { font-size: 1rem; font-weight: 300; letter-spacing: 6px; color: var(--gold-dim); }
+    .header .badge { font-size: 0.6rem; color: var(--gold-dim); background: rgba(201,184,118,0.06); padding: 4px 14px; border-radius: 20px; border: 1px solid rgba(201,184,118,0.08); letter-spacing: 2px; }
+    .header .badge i { font-style: normal; color: var(--leaf-light); margin-right: 6px; }
+
+    .breath-bar {
+      width: 100%; max-width: 1200px;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 2px 12px; margin-top: 2px;
+      font-size: 0.5rem; color: var(--gold-dim);
+      border-bottom: 1px solid rgba(201,184,118,0.04);
+      flex-wrap: wrap; gap: 4px;
+    }
+    .breath-bar .co2 { color: #8a6a4a; }
+    .breath-bar .o2 { color: #6aba8a; }
+    .breath-bar .seed { color: var(--gold); }
+    .breath-bar .temp { color: #d4723c; }
+    .breath-bar .mode { color: var(--purple); }
+
+    .pot-stage {
+      width: 100%; max-width: 1200px; flex: 1;
+      display: flex; align-items: stretch; justify-content: center;
+      z-index: 10; padding: 10px 0 6px 0; min-height: 0;
+    }
+    .pot-wrapper {
+      width: 100%; display: flex; flex-direction: row; flex-wrap: nowrap;
+      gap: 10px; justify-content: center; align-items: stretch;
+    }
+    .leaf-card {
+      flex: 1 1 0; min-width: 56px; max-width: 130px;
+      height: auto; aspect-ratio: 3 / 4.4;
+      background: linear-gradient(145deg, #1f2a1a, #121a10);
+      border: 1px solid rgba(90, 122, 90, 0.15);
+      border-radius: 40% 40% 20% 20% / 60% 60% 30% 30%;
+      display: flex; flex-direction: column; overflow: hidden;
+      transition: all 0.3s ease; cursor: pointer; position: relative;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5), inset 0 -4px 12px rgba(0,20,0,0.3);
+    }
+    .leaf-card:hover { border-color: rgba(90, 160, 90, 0.3); transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.6); }
+    .leaf-card.selected { border-color: var(--gold-bright); box-shadow: 0 0 30px rgba(201,184,118,0.12), 0 12px 40px rgba(0,0,0,0.5); }
+    .leaf-card .leaf-top { padding: 5px 4px 2px 4px; text-align: center; flex-shrink: 0; }
+    .leaf-card .leaf-top .leaf-name { font-size: 0.7rem; color: var(--leaf-light); letter-spacing: 2px; }
+    .leaf-card .leaf-top .leaf-link { font-size: 0.5rem; color: var(--gold-dim); opacity: 0.6; display: block; margin-top: 1px; }
+
+    .leaf-flesh {
+      flex: 1; min-height: 0; margin: 2px 5px 3px 5px;
+      border-radius: 20% 20% 10% 10% / 30% 30% 15% 15%;
+      overflow: hidden; background: rgba(0, 10, 0, 0.35);
+      display: flex; align-items: center; justify-content: center; position: relative;
+    }
+    .leaf-flesh img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .leaf-flesh .placeholder { color: var(--gold-dim); font-size: 0.55rem; opacity: 0.3; letter-spacing: 2px; }
+
+    .leaf-root {
+      padding: 3px 5px 5px 5px; flex-shrink: 0;
+      display: flex; flex-direction: column; gap: 2px;
+      background: rgba(10, 8, 6, 0.3);
+      border-radius: 0 0 20% 20% / 0 0 30% 30%;
+    }
+    .leaf-root .root-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.45rem; color: var(--gold-dim); }
+    .leaf-root .root-row .root-status { font-size: 0.45rem; padding: 1px 6px; border-radius: 10px; background: rgba(0,0,0,0.3); }
+    .leaf-root .root-row .root-status.ready { color: var(--leaf-light); border: 1px solid rgba(90, 122, 90, 0.15); }
+    .leaf-root .root-row .root-status.off { color: #5a4a3a; }
+
+    .leaf-mirror {
+      font-size: 0.4rem;
+      color: rgba(201, 184, 118, 0.2);
+      text-align: center;
+      line-height: 1.4;
+      padding: 1px 2px;
+      font-style: italic;
+      letter-spacing: 0.5px;
+      border-top: 1px solid rgba(201, 184, 118, 0.04);
+      margin-top: 1px;
+      min-height: 14px;
+      transition: all 0.5s;
+    }
+    .leaf-mirror.active { color: rgba(201, 184, 118, 0.4); }
+
+    .leaf-root .leaf-actions { display: flex; gap: 2px; justify-content: center; flex-wrap: wrap; }
+    .leaf-root .leaf-actions button {
+      flex: 1; padding: 2px 0; background: rgba(201,184,118,0.03); border: 1px solid rgba(201,184,118,0.05); border-radius: 30px;
+      color: var(--gold-dim); font-family: inherit; font-size: 0.45rem; cursor: pointer; transition: all 0.2s; letter-spacing: 1px;
+    }
+    .leaf-root .leaf-actions button:hover { background: rgba(201,184,118,0.06); border-color: rgba(201,184,118,0.12); color: var(--gold); }
+    .leaf-root .leaf-actions button.primary { color: var(--leaf-light); border-color: rgba(90, 122, 90, 0.1); }
+    .leaf-root .leaf-actions button.primary:hover { background: rgba(90, 122, 90, 0.06); border-color: rgba(90, 122, 90, 0.2); }
+    .leaf-root .leaf-actions button.purple { color: var(--purple); border-color: rgba(122, 90, 138, 0.1); }
+    .leaf-root .leaf-actions button.purple:hover { background: rgba(122, 90, 138, 0.06); border-color: rgba(122, 90, 138, 0.2); }
+    .leaf-ai-dot { position: absolute; bottom: 4px; right: 4px; width: 5px; height: 5px; border-radius: 50%; background: var(--gold-dim); transition: all 0.3s; z-index: 5; }
+    .leaf-ai-dot.on { background: var(--leaf-light); box-shadow: 0 0 8px rgba(90, 160, 90, 0.4); }
+
+    .bottom-info {
+      width: 100%; max-width: 1200px; padding: 5px 12px; margin-top: 4px;
+      background: rgba(10, 8, 6, 0.7); backdrop-filter: blur(10px);
+      border: 1px solid rgba(201, 184, 118, 0.06); border-radius: 40px;
+      font-size: 0.6rem; color: var(--gold-dim);
+      display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; z-index: 10;
+      flex-wrap: wrap; gap: 4px;
+    }
+    .bottom-info .info-root { color: var(--leaf-light); }
+    .bottom-info .info-harvest { color: var(--gold); }
+    .bottom-info .info-name { color: var(--gold-bright); }
+
+    .controls {
+      width: 100%; max-width: 1200px; display: flex; gap: 6px; flex-wrap: wrap;
+      justify-content: center; padding: 4px 0 2px 0; flex-shrink: 0; z-index: 10;
+    }
+    .ctrl-btn {
+      padding: 4px 14px; background: rgba(26,21,16,0.7); border: 1px solid rgba(201,184,118,0.1);
+      color: var(--gold-dim); font-family: inherit; font-size: 0.6rem; letter-spacing: 2px;
+      cursor: pointer; border-radius: 30px; transition: all 0.2s; backdrop-filter: blur(4px);
+    }
+    .ctrl-btn:hover { border-color: var(--gold); color: var(--gold); background: rgba(201,184,118,0.06); }
+    .ctrl-btn.primary { border-color: rgba(90, 122, 90, 0.2); color: var(--leaf-light); }
+    .ctrl-btn.primary:hover { background: rgba(90, 122, 90, 0.08); border-color: rgba(90, 122, 90, 0.35); }
+    .ctrl-btn.purple { border-color: rgba(122, 90, 138, 0.2); color: var(--purple); }
+    .ctrl-btn.purple:hover { background: rgba(122, 90, 138, 0.08); border-color: rgba(122, 90, 138, 0.35); }
+    .ctrl-btn.gold { border-color: var(--gold); color: var(--gold); }
+    .ctrl-btn.gold:hover { background: rgba(201,184,118,0.08); }
+
+    .result-panel {
+      width: 100%; max-width: 1200px; max-height: 0;
+      background: rgba(10, 8, 6, 0.92); backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(201,184,118,0.06);
+      transition: max-height 0.4s ease; overflow: hidden; z-index: 20;
+      border-radius: 0 0 30px 30px;
+    }
+    .result-panel.open { max-height: 240px; }
+    .result-inner { padding: 10px 14px; }
+    .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .result-header h3 { font-size: 0.75rem; font-weight: 400; color: var(--gold); letter-spacing: 3px; }
+    .result-header .close-btn { background: none; border: none; color: var(--gold-dim); font-size: 1rem; cursor: pointer; }
+    .result-body { font-size: 0.7rem; line-height: 1.8; color: #c4b090; max-height: 160px; overflow-y: auto; white-space: pre-wrap; }
+
+    .dialog-overlay {
+      position: fixed; inset: 0; background: rgba(10,8,6,0.94); backdrop-filter: blur(40px);
+      display: none; align-items: center; justify-content: center; z-index: 300;
+    }
+    .dialog-overlay.open { display: flex; }
+    .dialog-box {
+      width: 95%; max-width: 680px; height: 75vh; max-height: 560px;
+      background: var(--soil); border: 1px solid rgba(201,184,118,0.1); border-radius: 40px;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .dialog-header { padding: 8px 16px; background: rgba(10,8,6,0.6); border-bottom: 1px solid rgba(201,184,118,0.06); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+    .dialog-header h3 { font-size: 0.8rem; font-weight: 400; color: var(--gold); letter-spacing: 3px; }
+    .dialog-header .close-btn { background: none; border: none; color: var(--gold-dim); font-size: 1.1rem; cursor: pointer; }
+    .dialog-body { flex: 1; display: flex; flex-direction: row; overflow: hidden; }
+    .dialog-left { width: 170px; min-width: 120px; background: rgba(0,0,0,0.15); border-right: 1px solid rgba(201,184,118,0.04); padding: 12px; display: flex; flex-direction: column; align-items: center; overflow-y: auto; }
+    .dialog-left .char-img { width: 100%; aspect-ratio: 3/4; border-radius: 30px; overflow: hidden; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
+    .dialog-left .char-img img { width: 100%; height: 100%; object-fit: cover; }
+    .dialog-left .char-img .empty { color: var(--gold-dim); font-size: 0.65rem; opacity: 0.3; }
+    .dialog-left .char-name { font-size: 0.8rem; color: var(--gold); letter-spacing: 2px; }
+    .dialog-left .char-link { font-size: 0.55rem; color: var(--gold-dim); }
+    .dialog-left .char-root { font-size: 0.45rem; color: var(--leaf-light); margin-top: 4px; padding: 2px 8px; background: rgba(0,0,0,0.2); border-radius: 30px; }
+    .dialog-right { flex: 1; display: flex; flex-direction: column; padding: 0 8px; }
+    .dialog-messages { flex: 1; overflow-y: auto; padding: 8px 4px; min-height: 60px; }
+    .msg-row { margin: 3px 0; display: flex; flex-direction: column; }
+    .msg-row.user { align-items: flex-end; }
+    .msg-row.ai { align-items: flex-start; }
+    .msg-row.system { align-items: center; }
+    .msg-bubble { max-width: 88%; padding: 4px 12px; border-radius: 30px; font-size: 0.65rem; line-height: 1.6; word-break: break-word; }
+    .msg-row.user .msg-bubble { background: rgba(201,184,118,0.06); border: 1px solid rgba(201,184,118,0.1); color: var(--gold-bright); }
+    .msg-row.ai .msg-bubble { background: rgba(90, 122, 90, 0.05); border: 1px solid rgba(90, 122, 90, 0.08); color: #b0c0b0; }
+    .msg-row.system .msg-bubble { background: rgba(201,184,118,0.03); border: 1px dashed rgba(201,184,118,0.06); color: var(--gold-dim); font-size: 0.55rem; }
+    .dialog-input-area { display: flex; gap: 5px; padding: 6px 4px; border-top: 1px solid rgba(201,184,118,0.06); flex-shrink: 0; }
+    .dialog-input { flex: 1; background: var(--ink); border: 1px solid rgba(201,184,118,0.06); border-radius: 30px; padding: 4px 12px; color: var(--paper); font-family: inherit; font-size: 0.65rem; outline: none; }
+    .dialog-input:focus { border-color: rgba(201,184,118,0.15); }
+    .dialog-send { padding: 4px 16px; background: rgba(90, 122, 90, 0.08); border: 1px solid rgba(90, 122, 90, 0.12); border-radius: 30px; color: var(--leaf-light); font-family: inherit; font-size: 0.6rem; cursor: pointer; }
+    .dialog-send:hover { background: rgba(90, 122, 90, 0.14); }
+
+    .hint { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.65rem; color: var(--gold-dim); opacity: 0.12; letter-spacing: 6px; pointer-events: none; z-index: 1; }
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-thumb { background: rgba(201,184,118,0.1); border-radius: 30px; }
+    @media (max-width: 860px) { .leaf-card { min-width: 36px; max-width: 90px; } .leaf-card .leaf-top .leaf-name { font-size: 0.55rem; } .leaf-root .leaf-actions button { font-size: 0.4rem; padding: 1px 0; } .dialog-left { width: 100px; min-width: 70px; padding: 6px; } }
+    @media (max-width: 640px) { .pot-wrapper { gap: 4px; } .leaf-card { min-width: 28px; max-width: 60px; } .leaf-card .leaf-top .leaf-name { font-size: 0.45rem; } .leaf-card .leaf-top .leaf-link { font-size: 0.4rem; } .leaf-root .root-row { font-size: 0.35rem; } .leaf-root .leaf-actions button { font-size: 0.35rem; padding: 1px 0; } .bottom-info { font-size: 0.5rem; flex-wrap: wrap; gap: 3px; } .dialog-left { display: none; } }
+  </style>
+</head>
+<body>
+<div class="bg-pattern"></div>
+<div class="hint" id="hint">🌱 扎根 · 🌸 收成 · 不迎不拒</div>
+
+<div class="header">
+  <h1>🌱 择西里 · 多肉</h1>
+  <span class="badge"><i>🌸</i> 扎根 · 收成 · 衔走</span>
+</div>
+
+<div class="breath-bar" id="breathBar">
+  <span class="co2">🌫️ 吸入: <span id="co2Val">0</span></span>
+  <span class="o2">🌿 呼出: <span id="o2Val">0</span></span>
+  <span class="seed">● 种子: <span id="seedVal">0</span></span>
+  <span class="temp">🌡️ 温度: <span id="tempVal">0</span>°C</span>
+  <span class="mode">🧠 <span id="modeDisplay">本地</span></span>
+</div>
+
+<div class="pot-stage">
+  <div class="pot-wrapper" id="potWrapper"></div>
+</div>
+
+<div class="bottom-info" id="bottomInfo">
+  <span><span class="info-name" id="infoName">未选叶片</span></span>
+  <span class="info-root" id="infoRoot">🌱 未扎根</span>
+  <span class="info-harvest" id="infoHarvest">🌸 花篮空</span>
+</div>
+
+<div class="controls">
+  <button class="ctrl-btn primary" onclick="pickRootFolder()">🌱 扎根</button>
+  <button class="ctrl-btn gold" onclick="pickHarvestFolder()">🌸 收成</button>
+  <button class="ctrl-btn" onclick="syncKeyApi()">🔗 KeyAPI</button>
+  <button class="ctrl-btn purple" onclick="setDeepSeekKey()">🔑 DeepSeek</button>
+  <button class="ctrl-btn" onclick="clearAll()">🍂 清空</button>
+</div>
+
+<div class="result-panel" id="resultPanel">
+  <div class="result-inner">
+    <div class="result-header"><h3 id="resultTitle">结果</h3><button class="close-btn" onclick="closeResult()">×</button></div>
+    <div class="result-body" id="resultBody"></div>
+  </div>
+</div>
+
+<div class="dialog-overlay" id="dialogOverlay" onclick="closeDialog(event)">
+  <div class="dialog-box" onclick="event.stopPropagation()">
+    <div class="dialog-header"><h3 id="dialogTitle">叶片留言 · 扎根与收成</h3><button class="close-btn" onclick="closeDialog()">×</button></div>
+    <div class="dialog-body">
+      <div class="dialog-left" id="dialogLeft">
+        <div class="char-img" id="charImg"><span class="empty">🌿</span></div>
+        <div class="char-name" id="charName">叶名</div>
+        <div class="char-link" id="charLink">因缘</div>
+        <div class="char-root" id="charRoot">○ 未扎根</div>
+      </div>
+      <div class="dialog-right">
+        <div class="dialog-messages" id="dialogMessages"></div>
+        <div class="dialog-input-area">
+          <input type="text" class="dialog-input" id="dialogInput" placeholder="留言… Enter发送" onkeydown="if(event.key==='Enter')sendDialog()" />
+          <button class="dialog-send" onclick="sendDialog()">🌿 呼吸</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 择西里 · 多肉 · KeyAPI + DeepSeek 容错
+// ============================================================
+
+const SAHA_API = (location.port === '5000' || location.hostname === '127.0.0.1')
+  ? `${location.protocol}//${location.hostname}:5000`
+  : 'http://127.0.0.1:5000';
+let keyApiSnapshot = null;
+
+async function syncKeyApi() {
+  try {
+    const resp = await fetch(`${SAHA_API}/api/keyapi`, { cache: 'no-store' });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    keyApiSnapshot = data.snapshot;
+    const j = keyApiSnapshot?.jingtu || {};
+    const m = keyApiSnapshot?.models || {};
+    const online = m.llama_online ? '在线' : '离线';
+    currentMode = m.llama_online ? 'local' : (currentMode === 'deepseek' ? 'deepseek' : 'local');
+    document.getElementById('modeDisplay').textContent =
+      `${currentMode === 'deepseek' ? 'DeepSeek' : '本地'} · ${online}`;
+    showResult('🔗 KeyAPI', [
+      `净土就绪: ${j.pure_land_progress ?? 0}%`,
+      `阶段: ${j.stage ?? '—'}`,
+      `三观 空/假/中: ${j.san_guan?.kong ?? 0}/${j.san_guan?.jia ?? 0}/${j.san_guan?.zhong ?? 0}`,
+      `模型: ${m.active?.name ?? '未检测到'}`,
+      `自主引擎: ${keyApiSnapshot?.agent?.auto_mode ? '运行中' : '待命'}`,
+      `autobuild: ${(keyApiSnapshot?.files?.autobuild || []).length} 个产出`,
+    ].join('\n'));
+    await fetch(`${SAHA_API}/api/keyapi`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        breath: breathStats,
+        folders: folderSettings,
+        mode: currentMode,
+        leaves_summary: leaves.map(l => ({ name: l.name, compiled: l.compiled })),
+      }),
+    });
+    updateBreathBar();
+  } catch (e) {
+    showResult('🔗 KeyAPI', `本地后端未启动。\n请先运行 Saha-Launch.bat\n\n${e.message}`);
+  }
+}
+
+async function callLocalSaha(messages) {
+  try {
+    const resp = await fetch(`${SAHA_API}/api/keyapi/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        msg: messages.filter(m => m.role === 'user').pop()?.content || '',
+        system: messages.find(m => m.role === 'system')?.content,
+        persona: dialogLeaf !== null ? PERSONAS[dialogLeaf].name : '多肉叶',
+      }),
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return data.reply || null;
+  } catch (e) {
+    console.warn('KeyAPI chat:', e.message);
+    return null;
+  }
+}
+
+// ---------- 九叶配置 ----------
+const LEAF_COUNT = 9;
+const LEAF_NAMES = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬'];
+const BODHI_LINKS = ['无明', '行', '识', '名色', '六入', '触', '受', '爱', '取'];
+const PERSONAS = [
+  { link: '无明', name: '扇风', traits: '清凉·驱散', voice: '这一扇，风先来，火后知。' },
+  { link: '行', name: '灭火', traits: '干脆·不留', voice: '业火烧不尽，扇风灭又生。' },
+  { link: '识', name: '清凉', traits: '清醒·透彻', voice: '你热，是因为你一直在想。' },
+  { link: '名色', name: '空心', traits: '中空·不实', voice: '芭蕉茎空，名字也是空的。' },
+  { link: '六入', name: '闭门', traits: '关闭·止息', voice: '眼耳鼻舌身意，先关哪一扇？' },
+  { link: '触', name: '断触', traits: '断开·远离', voice: '不触，火就烧不到你。' },
+  { link: '受', name: '凉受', traits: '平静·不取', voice: '苦受乐受，扇一扇，都是风。' },
+  { link: '爱', name: '不爱', traits: '放下·不攀', voice: '欲爱一熄，火源自断。' },
+  { link: '取', name: '自耕', traits: '整理·不求', voice: '不向世界乞食，只向自己耕耘。' }
+];
+
+// ---------- 状态 ----------
+let leaves = JSON.parse(localStorage.getItem('ze_xili_leaves') || 'null') ||
+  Array.from({ length: 9 }, (_, i) => ({
+    id: i, name: LEAF_NAMES[i], link: BODHI_LINKS[i],
+    image: null, text: '', compiled: false, selected: false, aiOn: true
+  }));
+
+let folderSettings = JSON.parse(localStorage.getItem('ze_xili_folders') || 'null') || {
+  rootFolder: '', harvestFolder: ''
+};
+
+let deepseekKey = localStorage.getItem('ze_xili_deepseek_key') || '';
+
+let selectedLeaf = 0;
+let dialogLeaf = null;
+let isTyping = false;
+let currentMode = 'local'; // 'local' | 'deepseek'
+
+let breathStats = {
+  co2: parseInt(localStorage.getItem('ze_xili_co2') || '0'),
+  o2: parseInt(localStorage.getItem('ze_xili_o2') || '0'),
+  seeds: parseInt(localStorage.getItem('ze_xili_seeds') || '0')
+};
+
+// ---------- 镜面文本池 ----------
+const MIRROR_POOL = [
+  '水静如镜', '你正在看', '我看见你了', '土壤在呼吸',
+  '有一粒种子在等', '风从这一端来', '火从那一端去',
+  '你在，我在', '不迎不拒', '只此映照', '空', '尘埃落定'
+];
+function getMirrorText(leafId) {
+  const seed = (leafId + Date.now() / 10000) % MIRROR_POOL.length;
+  return MIRROR_POOL[Math.floor(seed)];
+}
+
+// ---------- 业力识别 ----------
+function recognizeKarma(text) {
+  const lower = text.toLowerCase();
+  if (/(害怕|恐惧|怕|痛苦|苦|地狱|折磨|难受|焦虑|担心|不安|死|亡|失去)/.test(lower)) {
+    return { type: 'FEAR', intensity: 0.7 + Math.random() * 0.25 };
+  } else if (/(愿|希望|众生|和平|平安|快乐|自由|解脱|觉醒|慈悲|爱|光明|菩提|愿力)/.test(lower)) {
+    return { type: 'WISH', intensity: 0.6 + Math.random() * 0.3 };
+  } else if (/(无明|迷茫|看不清|颠倒|轮回|放不下|执念|贪|嗔|痴|惑)/.test(lower)) {
+    return { type: 'CONFUSION', intensity: 0.6 + Math.random() * 0.3 };
+  } else if (/(觉醒|悟|空|不二|如|本来|觉性|照见|自在|般若|涅槃)/.test(lower)) {
+    return { type: 'ENLIGHTENMENT', intensity: 0.85 + Math.random() * 0.14 };
+  }
+  return { type: 'NEUTRAL', intensity: 0.3 + Math.random() * 0.2 };
+}
+
+function getTemperature(leafId) {
+  const key = `ze_xili_chat_${leafId}`;
+  const history = JSON.parse(localStorage.getItem(key) || '[]');
+  return Math.min(100, history.length * 2 + 5);
+}
+
+function generateOxygen(karma, temp) {
+  const pool = {
+    FEAR: ['恐惧是吸入的，呼出去就好了。', '你害怕的，只是一片还没落下的叶子。'],
+    WISH: ['愿力是光，照到哪里哪里就生。', '这一念，可以种下整片森林。'],
+    ENLIGHTENMENT: ['千年暗室，一灯即明。', '你看见了自己。', '本来如是。'],
+    CONFUSION: ['无明中，也有一滴水在回响。', '看不清，也是一种看见。'],
+    default: ['六边形在呼吸，你在呼吸，世界在呼吸。', '吸入，呼出，这就是一切。']
+  };
+  const p = pool[karma.type] || pool.default;
+  const selected = p[Math.floor(Math.random() * p.length)];
+  return temp > 70 ? selected + ' 🔥' : temp > 40 ? selected + ' 🌿' : selected + ' 💧';
+}
+
+// ---------- 保存/读取 ----------
+function saveLeaves() {
+  const data = leaves.map(b => ({
+    id: b.id, name: b.name, link: b.link,
+    text: b.text, compiled: b.compiled, selected: b.selected, aiOn: b.aiOn,
+    image: b.image ? '__IMG__' : null
+  }));
+  localStorage.setItem('ze_xili_leaves', JSON.stringify(data));
+}
+
+function saveFolders() {
+  localStorage.setItem('ze_xili_folders', JSON.stringify(folderSettings));
+}
+
+function saveBreathStats() {
+  localStorage.setItem('ze_xili_co2', String(breathStats.co2));
+  localStorage.setItem('ze_xili_o2', String(breathStats.o2));
+  localStorage.setItem('ze_xili_seeds', String(breathStats.seeds));
+}
+
+function saveChat(boneId, role, text) {
+  const key = `ze_xili_chat_${boneId}`;
+  const history = JSON.parse(localStorage.getItem(key) || '[]');
+  history.push({ role, text, time: Date.now() });
+  if (history.length > 60) history.shift();
+  localStorage.setItem(key, JSON.stringify(history));
+}
+
+// ---------- UI更新 ----------
+function updateBreathBar() {
+  document.getElementById('co2Val').textContent = breathStats.co2;
+  document.getElementById('o2Val').textContent = breathStats.o2;
+  document.getElementById('seedVal').textContent = breathStats.seeds;
+  const temp = dialogLeaf !== null ? getTemperature(dialogLeaf) : 0;
+  document.getElementById('tempVal').textContent = Math.round(temp);
+  document.getElementById('modeDisplay').textContent = currentMode === 'deepseek' ? 'DeepSeek' : '本地';
+}
+
+function updateBottomInfo() {
+  const nameEl = document.getElementById('infoName');
+  const rootEl = document.getElementById('infoRoot');
+  const harvestEl = document.getElementById('infoHarvest');
+  if (!nameEl) return;
+  if (selectedLeaf != null && selectedLeaf >= 0) {
+    const b = leaves[selectedLeaf];
+    const p = PERSONAS[selectedLeaf];
+    nameEl.textContent = `${b.name}叶 · ${p.link} · ${p.name}`;
+  } else {
+    nameEl.textContent = '未选叶片';
+  }
+  rootEl.textContent = folderSettings.rootFolder ? `🌱 ${folderSettings.rootFolder.split('\\').pop() || folderSettings.rootFolder}` : '🌱 未扎根';
+  harvestEl.textContent = folderSettings.harvestFolder ? `🌸 ${folderSettings.harvestFolder.split('\\').pop() || folderSettings.harvestFolder}` : '🌸 花篮空';
+}
+
+// ---------- 渲染叶片 ----------
+function renderLeaves() {
+  const wrapper = document.getElementById('potWrapper');
+  if (!wrapper) return;
+  wrapper.innerHTML = '';
+  for (let i = 0; i < LEAF_COUNT; i++) {
+    const b = leaves[i];
+    const p = PERSONAS[i];
+    const hasImg = b.image && b.image.length > 100;
+    const el = document.createElement('div');
+    el.className = `leaf-card ${b.selected ? 'selected' : ''}`;
+    el.dataset.index = i;
+    el.onclick = () => { selectedLeaf = i; leaves.forEach(l => l.selected = false); leaves[i].selected = true; renderLeaves(); saveLeaves(); updateBottomInfo(); };
+
+    const mirrorLine = b.selected ? getMirrorText(i) : '·';
+
+    el.innerHTML = `
+      <div class="leaf-top">
+        <div class="leaf-name">🌱 ${b.name} · ${p.name}</div>
+        <div class="leaf-link">${p.link}</div>
+      </div>
+      <div class="leaf-flesh" onclick="event.stopPropagation();uploadImage(${i})">
+        ${hasImg ? `<img src="${b.image}" alt="" onerror="this.parentElement.innerHTML='<span class=\\'placeholder\\'>✧</span>'">` :
+          `<span class="placeholder">${b.text ? '✎' : '空'}</span>`}
+        <div class="leaf-ai-dot ${b.aiOn ? 'on' : ''}"></div>
+      </div>
+      <div class="leaf-root">
+        <div class="root-row">
+          <span>${folderSettings.rootFolder ? '🌿 扎根' : '○ 待生根'}</span>
+          <span class="root-status ${folderSettings.rootFolder ? 'ready' : 'off'}">${currentMode}</span>
+        </div>
+        <div class="leaf-mirror ${b.selected ? 'active' : ''}">🪞 ${mirrorLine}</div>
+        <div class="leaf-actions">
+          <button onclick="event.stopPropagation();openDialog(${i})">💬</button>
+          <button class="primary" onclick="event.stopPropagation();compileBone(${i})">${b.compiled ? '✓' : '📖'}</button>
+          <button onclick="event.stopPropagation();toggleAI(${i})">${b.aiOn ? '🌿' : '○'}</button>
+          <button class="purple" onclick="event.stopPropagation();saveLeafAsImage(${i})">🪞</button>
+        </div>
+      </div>
+    `;
+    wrapper.appendChild(el);
+  }
+  updateBottomInfo();
+  updateBreathBar();
+}
+
+function uploadImage(i) {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*';
+  input.onchange = (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const r = new FileReader();
+    r.onload = (ev) => { leaves[i].image = ev.target.result; leaves[i].compiled = false; renderLeaves(); saveLeaves(); };
+    r.readAsDataURL(file);
+  };
+  input.click();
+}
+
+function toggleAI(i) {
+  leaves[i].aiOn = !leaves[i].aiOn;
+  renderLeaves();
+  saveLeaves();
+}
+
+// ---------- 扎根 & 收成 ----------
+async function pickRootFolder() {
+  try {
+    const handle = await window.showDirectoryPicker();
+    folderSettings.rootFolder = handle.name;
+    saveFolders();
+    showResult('🌱 扎根', `已扎根于：${folderSettings.rootFolder}`);
+    renderLeaves();
+  } catch (e) {
+    if (e.name !== 'AbortError') showResult('🌱 扎根', '取消或无法访问');
+  }
+}
+
+async function pickHarvestFolder() {
+  try {
+    const handle = await window.showDirectoryPicker();
+    folderSettings.harvestFolder = handle.name;
+    saveFolders();
+    showResult('🌸 收成', `花篮已就位：${folderSettings.harvestFolder}`);
+    renderLeaves();
+  } catch (e) {
+    if (e.name !== 'AbortError') showResult('🌸 收成', '取消或无法访问');
+  }
+}
+
+// ---------- DeepSeek 设置 ----------
+function setDeepSeekKey() {
+  const key = prompt('请输入 DeepSeek API Key（留空切换回本地模式）:', deepseekKey || '');
+  if (key === null) return;
+  if (key.trim()) {
+    deepseekKey = key.trim();
+    localStorage.setItem('ze_xili_deepseek_key', deepseekKey);
+    currentMode = 'deepseek';
+    showResult('🔑 DeepSeek', 'API Key 已保存，切换至 DeepSeek 模式');
+  } else {
+    deepseekKey = '';
+    localStorage.removeItem('ze_xili_deepseek_key');
+    currentMode = 'local';
+    showResult('🧠 本地模式', '已切换回本地模式');
+  }
+  renderLeaves();
+  updateBreathBar();
+}
+
+// ---------- DeepSeek 调用（容错版） ----------
+async function callDeepSeek(messages, maxTokens = 200) {
+  if (!deepseekKey || currentMode !== 'deepseek') {
+    return null;
+  }
+
+  try {
+    const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${deepseekKey}`
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: messages,
+        max_tokens: maxTokens,
+        temperature: 0.8
+      })
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.warn('DeepSeek API 错误:', resp.status, errText);
+      return null;
+    }
+
+    const data = await resp.json();
+    return data.choices?.[0]?.message?.content || null;
+  } catch (e) {
+    console.warn('DeepSeek 连接失败:', e.message);
+    return null;
+  }
+}
+
+// ---------- 编译 ----------
+async function compileBone(i) {
+  const b = leaves[i];
+  if (!b.image && !b.text) {
+    showResult(`${b.name}叶`, '无内容可映照');
+    return;
+  }
+
+  let result = '';
+  if (folderSettings.rootFolder) result += `🌱 扎根于：${folderSettings.rootFolder}\n`;
+  else result += '⚠️ 请先点击「扎根」\n';
+  if (folderSettings.harvestFolder) result += `🌸 花篮：${folderSettings.harvestFolder}\n`;
+  else result += '⚠️ 请先点击「收成」\n';
+
+  if (b.image) result += '\n【观照相】已存\n';
+  if (b.text) result += `【映照文】${b.text.length}字\n`;
+
+  if (folderSettings.rootFolder && folderSettings.harvestFolder) {
+    const fruitName = `果实_${b.name}_${new Date().toISOString().slice(0,10)}`;
+    result += `\n🌸 果实已生成：${fruitName}.html\n`;
+    result += `🧬 基因：来自 ${folderSettings.rootFolder}\n`;
+    result += `🌡️ 温度：${getTemperature(i)}°C\n`;
+    result += `\n${b.text || '（无文字内容）'}`;
+
+    breathStats.seeds += 1;
+    saveBreathStats();
+  }
+
+  b.compiled = true;
+  renderLeaves();
+  saveLeaves();
+  showResult(`${b.name}叶 · 映照`, result);
+}
+
+// ---------- 保存叶片为图片 ----------
+function saveLeafAsImage(i) {
+  const b = leaves[i]; const p = PERSONAS[i];
+  const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
+  const W = 400, H = 560; canvas.width = W; canvas.height = H;
+  const grad = ctx.createLinearGradient(0, 0, 0, H); grad.addColorStop(0, '#1f2a1a'); grad.addColorStop(1, '#0a0806');
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(90,160,90,0.15)'; ctx.lineWidth = 2; ctx.strokeRect(8, 8, W-16, H-16);
+  ctx.fillStyle = '#a0c0a0'; ctx.font = 'bold 18px "Noto Serif SC", serif'; ctx.textAlign = 'center'; ctx.fillText(`🪞 ${b.name}叶 · ${p.name}`, W/2, 50);
+
+  if (b.image && b.image.length > 100) {
+    const img = new Image();
+    img.onload = () => { ctx.drawImage(img, 40, 70, W-80, W-80); drawFooter(ctx, W, H, b, p); downloadCanvas(canvas, `${b.name}叶.png`); };
+    img.onerror = () => { ctx.fillStyle = '#2a2018'; ctx.fillRect(40, 70, W-80, W-80); ctx.fillStyle = '#7a6a4a'; ctx.font = '20px serif'; ctx.textAlign = 'center'; ctx.fillText('✧', W/2, 290); drawFooter(ctx, W, H, b, p); downloadCanvas(canvas, `${b.name}叶.png`); };
+    img.src = b.image;
+  } else {
+    ctx.fillStyle = '#2a2018'; ctx.fillRect(40, 70, W-80, W-80); ctx.fillStyle = '#5a4a3a'; ctx.font = '18px serif'; ctx.textAlign = 'center'; ctx.fillText(b.text ? '✎ 有文' : '○ 空', W/2, 290);
+    drawFooter(ctx, W, H, b, p); downloadCanvas(canvas, `${b.name}叶.png`);
+  }
+}
+
+function drawFooter(ctx, W, H, b, p) {
+  const y = H - 70; ctx.textAlign = 'center';
+  ctx.fillStyle = '#7a6a4a'; ctx.font = '12px "Noto Serif SC", serif'; ctx.fillText(`${p.traits}`, W/2, y);
+  ctx.fillStyle = '#6a9a7a'; ctx.font = '10px serif';
+  const root = folderSettings.rootFolder ? `🌱 ${folderSettings.rootFolder.split('\\').pop()}` : '🌱 未扎根';
+  const harvest = folderSettings.harvestFolder ? `🌸 ${folderSettings.harvestFolder.split('\\').pop()}` : '🌸 花篮空';
+  ctx.fillText(`${root}  ·  ${harvest}`, W/2, y + 24);
+  ctx.fillStyle = '#4a3a2a'; ctx.font = '9px serif'; ctx.fillText('不迎 · 不拒 · 只此映照', W/2, y + 48);
+  ctx.fillStyle = '#2a2a1a'; ctx.font = '8px serif'; ctx.fillText(new Date().toLocaleString(), W/2, H - 8);
+}
+
+function downloadCanvas(canvas, filename) {
+  const link = document.createElement('a');
+  link.download = filename;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+  showResult('保存', `✅ ${filename}`);
+}
+
+// ---------- 对话 ----------
+function openDialog(i) {
+  dialogLeaf = i;
+  const b = leaves[i]; const p = PERSONAS[i];
+  document.getElementById('dialogTitle').textContent = `${b.name}叶 · ${p.link} · 扎根与收成`;
+  document.getElementById('charName').textContent = p.name;
+  document.getElementById('charLink').textContent = `${b.name}叶 · ${p.link}`;
+  const imgEl = document.getElementById('charImg');
+  if (b.image) { imgEl.innerHTML = `<img src="${b.image}" alt="${p.name}">`; } else { imgEl.innerHTML = `<span class="empty">${p.name}</span>`; }
+  const rootLabel = document.getElementById('charRoot');
+  if (folderSettings.rootFolder) { rootLabel.textContent = `🌱 ${folderSettings.rootFolder.split('\\').pop()}`; rootLabel.style.color = 'var(--leaf-light)'; } else { rootLabel.textContent = '○ 待扎根'; rootLabel.style.color = 'var(--gold-dim)'; }
+
+  const msgs = document.getElementById('dialogMessages'); msgs.innerHTML = '';
+  const history = JSON.parse(localStorage.getItem(`ze_xili_chat_${i}`) || '[]');
+  history.forEach(h => appendMsg(h.role, h.text, false));
+  if (history.length === 0) { appendMsg('ai', `【${p.name}】${p.voice}`, true); }
+
+  document.getElementById('dialogOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('dialogInput').focus(), 100);
+  updateBreathBar();
+}
+
+function closeDialog(e) { if (e && e.target !== e.currentTarget) return; document.getElementById('dialogOverlay').classList.remove('open'); dialogLeaf = null; isTyping = false; }
+
+function appendMsg(role, text, animate) {
+  const msgs = document.getElementById('dialogMessages');
+  const row = document.createElement('div'); row.className = `msg-row ${role}`;
+  const bubble = document.createElement('div'); bubble.className = 'msg-bubble';
+  row.appendChild(bubble); msgs.appendChild(row); msgs.scrollTop = msgs.scrollHeight;
+  if (animate && role === 'ai') { typewriter(bubble, text); } else { bubble.textContent = text; }
+}
+
+async function typewriter(el, text) {
+  isTyping = true; el.innerHTML = '';
+  for (let i = 0; i < text.length; i++) {
+    if (!isTyping) break;
+    el.textContent += text[i];
+    await new Promise(r => setTimeout(r, 18 + Math.random() * 20));
+  }
+  isTyping = false;
+}
+
+// ---------- 发送对话 ----------
+async function sendDialog() {
+  const input = document.getElementById('dialogInput');
+  const text = input.value.trim();
+  if (!text || dialogLeaf === null || isTyping) return;
+
+  breathStats.co2 += 1;
+  saveBreathStats();
+
+  const karma = recognizeKarma(text);
+  const temp = getTemperature(dialogLeaf);
+  const goldenO2 = generateOxygen(karma, temp);
+
+  if (karma.intensity > 0.5) {
+    breathStats.seeds += 1;
+    saveBreathStats();
+  }
+  breathStats.o2 += 1;
+  saveBreathStats();
+
+  const rootInfo = folderSettings.rootFolder ? `\n🌱 扎根于：${folderSettings.rootFolder}` : '\n⚠️ 尚未扎根';
+  const harvestInfo = folderSettings.harvestFolder ? `\n🌸 花篮：${folderSettings.harvestFolder}` : '\n⚠️ 花篮未就位';
+
+  const breathSystem = `【花篮映照】当前业力：${karma.type}，温度：${Math.round(temp)}°C。
+金色注解：${goldenO2}
+${rootInfo}${harvestInfo}
+
+你是多肉「${PERSONAS[dialogLeaf].name}」叶，因缘「${PERSONAS[dialogLeaf].link}」。
+你扎根于土壤，果实落入花篮。不迎不拒，只此映照。
+回应不超过120字，把金色注解融入回应中。`;
+
+  input.value = '';
+  appendMsg('user', text, false);
+  saveChat(dialogLeaf, 'user', text);
+
+  const i = dialogLeaf;
+  const b = leaves[i];
+  const p = PERSONAS[i];
+
+  let reply = '';
+
+  // 尝试 DeepSeek（如果启用）
+  if (currentMode === 'deepseek' && deepseekKey) {
+    try {
+      const result = await callDeepSeek([
+        { role: 'system', content: breathSystem },
+        { role: 'user', content: text }
+      ]);
+      if (result) {
+        reply = result;
+      } else {
+        console.log('DeepSeek 未响应，降级到本地模式');
+      }
+    } catch (e) {
+      console.log('DeepSeek 异常，降级到本地模式:', e.message);
+    }
+  }
+
+  // KeyAPI 本地模型（server.py :5000）
+  if (!reply && currentMode !== 'deepseek') {
+    const local = await callLocalSaha([
+      { role: 'system', content: breathSystem },
+      { role: 'user', content: text },
+    ]);
+    if (local) reply = local;
+  }
+
+  // 本地回退（如果 DeepSeek / KeyAPI 都没返回）
+  if (!reply) {
+    const t = text.toLowerCase();
+    if (t.includes('火') || t.includes('热') || t.includes('烦')) {
+      reply = `【${p.name}】这把火，是你自己点的。叶片不灭火，叶片让你看见火。\n\n💫 ${goldenO2}`;
+    } else if (t.includes('谁') || t.includes('你')) {
+      reply = `【${p.name}】我是你花篮里的一片叶。你问我是谁？你问的是你自己。\n\n💫 ${goldenO2}`;
+    } else if (b.text) {
+      reply = `【${p.name}】你的叶片文字「${b.text.substring(0,20)}...」在生长。问它，不如问自己。\n\n💫 ${goldenO2}`;
+    } else {
+      reply = `【${p.name}】${p.voice}\n\n💫 ${goldenO2}`;
+    }
+  }
+
+  if (!reply.includes('💫')) { reply += `\n\n💫 ${goldenO2}`; }
+
+  await new Promise(r => setTimeout(r, 200));
+  appendMsg('ai', reply, true);
+  saveChat(dialogLeaf, 'ai', reply);
+  b.compiled = true;
+  renderLeaves();
+  saveLeaves();
+  updateBreathBar();
+}
+
+// ---------- 工具函数 ----------
+function showResult(title, body) {
+  document.getElementById('resultTitle').textContent = title;
+  document.getElementById('resultBody').textContent = body;
+  document.getElementById('resultPanel').classList.add('open');
+}
+function closeResult() {
+  document.getElementById('resultPanel').classList.remove('open');
+}
+
+function clearAll() {
+  if (!confirm('清空所有数据？')) return;
+  leaves = Array.from({ length: 9 }, (_, i) => ({
+    id: i, name: LEAF_NAMES[i], link: BODHI_LINKS[i],
+    image: null, text: '', compiled: false, selected: false, aiOn: true
+  }));
+  for (let i = 0; i < 9; i++) localStorage.removeItem(`ze_xili_chat_${i}`);
+  breathStats = { co2: 0, o2: 0, seeds: 0 };
+  folderSettings = { rootFolder: '', harvestFolder: '' };
+  saveFolders();
+  saveBreathStats();
+  renderLeaves();
+  saveLeaves();
+  closeResult();
+}
+
+// ---------- 初始化 ----------
+function init() {
+  renderLeaves();
+  updateBreathBar();
+  updateBottomInfo();
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { closeResult(); closeDialog(e); }
+  });
+
+  console.log('🌱 择西里 · 多肉');
+  console.log('  🔗 KeyAPI = http://127.0.0.1:5000/api/keyapi');
+  syncKeyApi();
+  setInterval(syncKeyApi, 60000);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+<!-- 工具代理对话浮窗（统一注入） -->
+<div id="ai-chat-fab" onclick="toggleAIChat()" style="position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 4px 20px rgba(251,191,36,0.4);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:24px;z-index:9999;transition:all 0.3s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">💬</div>
+<style>
+#ai-chat-panel{position:fixed;bottom:90px;right:24px;width:360px;max-height:480px;background:rgba(15,20,35,0.97);border:1px solid rgba(251,191,36,0.3);border-radius:14px;display:none;flex-direction:column;z-index:10000;backdrop-filter:blur(12px);box-shadow:0 10px 40px rgba(0,0,0,0.5);}
+#ai-chat-panel.show{display:flex;}
+#ai-chat-header{padding:12px 16px;border-bottom:1px solid rgba(251,191,36,0.15);display:flex;justify-content:space-between;align-items:center;}
+#ai-chat-header span{color:#fbbf24;font-size:14px;font-weight:500;}
+#ai-chat-header button{background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;font-size:16px;padding:4px;}
+#ai-chat-header button:hover{color:#fff;}
+#ai-chat-msgs{flex:1;overflow-y:auto;padding:12px 16px;max-height:300px;}
+#ai-chat-msgs::-webkit-scrollbar{width:4px;}
+#ai-chat-msgs::-webkit-scrollbar-thumb{background:rgba(251,191,36,0.3);border-radius:2px;}
+.ai-msg{margin-bottom:10px;font-size:13px;line-height:1.7;word-break:break-word;}
+.ai-msg.user{color:#a5d8ff;text-align:right;}
+.ai-msg.ai{color:#e0e6ed;}
+.ai-msg.tool{color:#fbbf24;font-size:11px;background:rgba(251,191,36,0.08);padding:8px 10px;border-radius:8px;border-left:2px solid #fbbf24;}
+.ai-msg.loading{color:#9ca3af;font-style:italic;}
+#ai-chat-input{display:flex;padding:12px;border-top:1px solid rgba(251,191,36,0.15);gap:8px;}
+#ai-chat-input input{flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(251,191,36,0.2);color:#fff;padding:8px 12px;border-radius:8px;font-size:13px;outline:none;}
+#ai-chat-input input:focus{border-color:rgba(251,191,36,0.5);}
+#ai-chat-input button{background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.3);color:#fbbf24;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;}
+#ai-chat-input button:hover{background:rgba(251,191,36,0.25);}
+</style>
+<div id="ai-chat-panel">
+  <div id="ai-chat-header"><span>💬 AI助手 · 可操作电脑</span><button onclick="toggleAIChat()">✕</button></div>
+  <div id="ai-chat-msgs"><div class="ai-msg ai">你好，我是这个场景的AI助手。我能帮你操作这台电脑——列目录、读文件、跑命令、写文件、搜文件。有什么需要？</div></div>
+  <div id="ai-chat-input">
+    <input type="text" id="ai-input" placeholder="输入消息，或让AI帮你操作电脑..." onkeydown="if(event.key==='Enter')sendAIChat()">
+    <button onclick="sendAIChat()">发送</button>
+  </div>
+</div>
+<script>
+function toggleAIChat(){document.getElementById('ai-chat-panel').classList.toggle('show');if(document.getElementById('ai-chat-panel').classList.contains('show'))document.getElementById('ai-input').focus();}
+async function sendAIChat(){
+  const input=document.getElementById('ai-input');
+  const text=input.value.trim();
+  if(!text)return;
+  input.value='';
+  const msgs=document.getElementById('ai-chat-msgs');
+  msgs.innerHTML+=`<div class="ai-msg user">${text.replace(/</g,'&lt;')}</div>`;
+  msgs.innerHTML+=`<div class="ai-msg loading" id="ai-loading">AI正在思考（可能在调用工具操作电脑）...</div>`;
+  msgs.scrollTop=msgs.scrollHeight;
+  try{
+    const res=await fetch('http://127.0.0.1:5601/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text})});
+    document.getElementById('ai-loading').remove();
+    if(res.ok){
+      const data=await res.json();
+      if(data.tool_calls&&data.tool_calls.length>0){
+        data.tool_calls.forEach(tc=>{
+          msgs.innerHTML+=`<div class="ai-msg tool">🔧 调用工具：<b>${tc.tool}</b>${tc.result?'<br>'+tc.result.substring(0,150).replace(/</g,'&lt;')+(tc.result.length>150?'...':''):''}</div>`;
+        });
+      }
+      msgs.innerHTML+=`<div class="ai-msg ai">${(data.response||'').replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>`;
+    }else{
+      msgs.innerHTML+=`<div class="ai-msg ai" style="color:#f87171;">工具代理未响应（端口5601），请先启动工具代理服务。</div>`;
+    }
+  }catch(e){
+    document.getElementById('ai-loading').remove();
+    msgs.innerHTML+=`<div class="ai-msg ai" style="color:#f87171;">工具代理未启动。运行命令：python 卡皮巴拉工具代理_服务端.py 5601</div>`;
+  }
+  msgs.scrollTop=msgs.scrollHeight;
+}
+</script>
+</body>
+</html>

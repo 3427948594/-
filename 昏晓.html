@@ -1,0 +1,4749 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>昏晓 · 光球与卡皮巴拉</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { overflow: hidden; background: #0a0a0f; font-family: 'Songti SC', 'STSong', 'SimSun', 'KaiTi', serif; cursor: crosshair; color: #e0d8c8; user-select: none; }
+#canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
+
+/* ===== 加载界面 ===== */
+#loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0a0a0f; display: flex; align-items: center; justify-content: center; color: #88ccff; font-size: 14px; z-index: 200; flex-direction: column; gap: 20px; }
+#loading.hide { opacity: 0; pointer-events: none; transition: opacity 1.5s; }
+#loading .title { font-size: 22px; letter-spacing: 10px; color: #ffcc66; }
+#loading .subtitle { color: #888; font-size: 12px; max-width: 500px; text-align: center; line-height: 2.2; }
+#loading .bar-wrap { width: 300px; height: 4px; background: #222; border-radius: 2px; overflow: hidden; }
+#loading .bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #88ccff, #ffcc66); transition: width 0.5s ease; }
+
+/* ===== 三观进度 ===== */
+#san-guan { position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.85); border: 1px solid rgba(136,204,255,0.3); border-radius: 8px; padding: 18px; color: #88ccff; font-size: 12px; min-width: 240px; pointer-events: none; }
+#san-guan h3 { font-size: 14px; margin-bottom: 14px; letter-spacing: 4px; color: #ffcc66; text-align: center; }
+.guan-item { margin: 10px 0; }
+.guan-item .name { color: #ccc; font-size: 12px; margin-bottom: 4px; letter-spacing: 2px; }
+.guan-item .sub { color: #666; font-size: 10px; margin-bottom: 4px; }
+.guan-item .bar { width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; }
+.guan-item .fill { height: 100%; transition: width 0.8s ease; width: 0%; }
+#observe .fill { background: linear-gradient(90deg, #4a90d9, #87ceeb); }
+#feel .fill { background: linear-gradient(90deg, #9b59b6, #e056fd); }
+#realize .fill { background: linear-gradient(90deg, #f1c40f, #e67e22); }
+
+/* ===== 本地模型状态 ===== */
+#model-status { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 10px 20px; color: #fff; font-size: 13px; letter-spacing: 2px; text-align: center; min-width: 220px; pointer-events: none; }
+#model-status .level { color: #ffcc66; font-size: 11px; margin-bottom: 4px; }
+#model-status .state { color: #88ccff; font-size: 14px; }
+#model-status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #666; margin-right: 6px; vertical-align: middle; }
+#model-status.online .dot { background: #4caf50; box-shadow: 0 0 6px #4caf50; }
+#model-status.offline .dot { background: #f44336; }
+
+/* ===== 层数指示 ===== */
+#layer-indicator { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.7); border: 1px solid rgba(255,200,100,0.3); border-radius: 8px; padding: 12px 16px; color: #ffcc66; font-size: 11px; text-align: center; pointer-events: none; }
+#layer-indicator .num { font-size: 24px; font-weight: bold; margin: 4px 0; letter-spacing: 2px; }
+#layer-indicator .label { color: #888; font-size: 10px; letter-spacing: 3px; }
+
+/* ===== 操作提示 ===== */
+#controls { position: absolute; bottom: 20px; left: 20px; color: rgba(255,255,255,0.5); font-size: 11px; line-height: 2; background: rgba(0,0,0,0.7); padding: 12px 16px; border-radius: 6px; pointer-events: none; }
+#controls .key { color: #88ccff; font-weight: bold; }
+
+/* ===== 准星 ===== */
+#crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 16px; height: 16px; pointer-events: none; opacity: 0.5; }
+#crosshair::before, #crosshair::after { content: ''; position: absolute; background: rgba(255,255,255,0.6); }
+#crosshair::before { width: 1px; height: 100%; left: 50%; transform: translateX(-50%); }
+#crosshair::after { width: 100%; height: 1px; top: 50%; transform: translateY(-50%); }
+
+/* ===== 交互提示 ===== */
+#interact-hint { position: absolute; bottom: 92px; left: 50%; transform: translateX(-50%); color: rgba(255,204,102,0.72); font-size: 12px; background: rgba(0,0,0,0.45); padding: 8px 18px; border-radius: 20px; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; border: 1px solid rgba(255,204,102,0.2); letter-spacing: 2px; }
+#interact-hint.show { opacity: 1; }
+#interact-hint.dim { opacity: 0.15 !important; }
+#interact-hint .key { background: rgba(255,204,102,0.25); color: #ffcc66; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin: 0 4px; }
+
+/* ===== 对话框（通用） ===== */
+.dialog-box { position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); width: 80%; max-width: 700px; background: rgba(0,0,0,0.94); border: 1px solid rgba(136,204,255,0.4); border-radius: 10px; padding: 20px 26px; color: #e0e0e0; font-size: 14px; line-height: 2; display: none; z-index: 20; }
+.dialog-box.show { display: block; animation: dialogIn 0.4s ease; }
+@keyframes dialogIn { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.dialog-box .speaker { color: #ffcc66; font-size: 12px; margin-bottom: 10px; letter-spacing: 3px; display: flex; align-items: center; gap: 8px; }
+.dialog-box .speaker .avatar { width: 28px; height: 28px; border-radius: 50%; background: #ffcc66; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.dialog-box .text { min-height: 40px; white-space: pre-wrap; }
+.dialog-box .choices { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px; }
+.dialog-box .choice { background: rgba(136,204,255,0.1); border: 1px solid rgba(136,204,255,0.3); color: #88ccff; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s; font-family: inherit; }
+.dialog-box .choice:hover { background: rgba(136,204,255,0.2); border-color: #88ccff; transform: translateY(-1px); }
+.dialog-box .hint { color: #666; font-size: 11px; margin-top: 12px; font-style: italic; text-align: right; }
+
+/* ===== 卡皮巴拉对话框 ===== */
+#capy-dialog .speaker .avatar { background: #c8a870; }
+#capy-dialog { border-color: rgba(200,168,112,0.5); }
+#capy-dialog .speaker { color: #c8a870; }
+#capy-dialog .choice { border-color: rgba(200,168,112,0.4); color: #d4b88a; background: rgba(200,168,112,0.08); }
+#capy-dialog .choice:hover { background: rgba(200,168,112,0.18); }
+
+/* ===== 择西里光球对话框 ===== */
+#orb-dialog .speaker .avatar { background: radial-gradient(circle, #fff, #88ccff); color: #000; }
+
+/* ===== 聊天气泡式自由对话面板 ===== */
+#chat-panel { position: absolute; bottom: 60px; right: 30px; width: 380px; height: 480px; background: rgba(0,0,0,0.92); border: 1px solid rgba(136,204,255,0.4); border-radius: 12px; display: none; flex-direction: column; z-index: 30; overflow: hidden; }
+#chat-panel.show { display: flex; animation: panelIn 0.3s ease; }
+@keyframes panelIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+#chat-panel .chat-header { padding: 14px 18px; border-bottom: 1px solid rgba(136,204,255,0.2); display: flex; justify-content: space-between; align-items: center; }
+#chat-panel .chat-header .title { color: #ffcc66; font-size: 14px; letter-spacing: 2px; }
+#chat-panel .chat-header .close-btn { color: #888; cursor: pointer; font-size: 18px; padding: 0 4px; }
+#chat-panel .chat-header .close-btn:hover { color: #fff; }
+#chat-panel .chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+#chat-panel .chat-messages::-webkit-scrollbar { width: 4px; }
+#chat-panel .chat-messages::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+.chat-msg { max-width: 85%; padding: 10px 14px; border-radius: 10px; font-size: 13px; line-height: 1.8; white-space: pre-wrap; word-wrap: break-word; }
+.chat-msg.user { align-self: flex-end; background: rgba(136,204,255,0.15); border: 1px solid rgba(136,204,255,0.3); color: #aaddff; }
+.chat-msg.orb { align-self: flex-start; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #e0e0e0; }
+.chat-msg.typing { color: #666; font-style: italic; }
+.chat-msg .sender { font-size: 10px; color: #88ccff; margin-bottom: 4px; letter-spacing: 1px; }
+.chat-msg.user .sender { color: #ffcc66; text-align: right; }
+#chat-panel .chat-input { padding: 12px 14px; border-top: 1px solid rgba(136,204,255,0.2); display: flex; gap: 8px; }
+#chat-panel .chat-input textarea { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 8px 12px; color: #e0e0e0; font-size: 13px; font-family: inherit; resize: none; height: 40px; outline: none; line-height: 1.6; }
+#chat-panel .chat-input textarea:focus { border-color: rgba(136,204,255,0.4); }
+#chat-panel .chat-input button { background: rgba(136,204,255,0.2); border: 1px solid rgba(136,204,255,0.4); color: #88ccff; padding: 0 16px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 13px; }
+#chat-panel .chat-input button:hover { background: rgba(136,204,255,0.3); }
+#chat-panel .chat-input button:disabled { opacity: 0.4; cursor: not-allowed; }
+.chat-counter { text-align: center; color: #666; font-size: 11px; padding: 4px 0; }
+
+/* ===== 昏晓讲堂面板 ===== */
+#feelng-tang-panel { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 750px; max-width: 90vw; height: 500px; max-height: 80vh; background: rgba(10,10,20,0.98); border: 1px solid rgba(136,204,255,0.4); border-radius: 10px; display: none; z-index: 40; flex-direction: column; overflow: hidden; }
+#feelng-tang-panel.show { display: flex; }
+#feelng-tang-panel .jt-close { position: absolute; top: 12px; right: 16px; color: #888; cursor: pointer; font-size: 20px; z-index: 2; }
+#feelng-tang-panel .jt-close:hover { color: #fff; }
+#feelng-tang-panel h3 { padding: 18px 24px; color: #ffcc66; font-size: 16px; letter-spacing: 4px; border-bottom: 1px solid rgba(136,204,255,0.2); }
+#feelng-tang-panel .jt-body { flex: 1; display: flex; overflow: hidden; }
+#feelng-tang-panel .jt-sidebar { width: 160px; border-right: 1px solid rgba(136,204,255,0.15); padding: 12px 0; overflow-y: auto; }
+#feelng-tang-panel .jt-topic { padding: 10px 18px; color: #888; font-size: 12px; cursor: pointer; transition: all 0.2s; letter-spacing: 1px; border-left: 3px solid transparent; }
+#feelng-tang-panel .jt-topic:hover { color: #ccc; background: rgba(136,204,255,0.05); }
+#feelng-tang-panel .jt-topic.active { color: #88ccff; background: rgba(136,204,255,0.1); border-left-color: #88ccff; }
+#feelng-tang-panel .jt-content { flex: 1; padding: 24px 28px; overflow-y: auto; color: #d0d0d0; font-size: 13px; line-height: 2; }
+#feelng-tang-panel .jt-content h4 { color: #ffcc66; font-size: 15px; margin-bottom: 16px; letter-spacing: 2px; }
+#feelng-tang-panel .jt-content p { margin-bottom: 14px; }
+#feelng-tang-panel .jt-content .highlight { color: #88ccff; font-weight: bold; }
+#feelng-tang-panel .jt-content .warn { color: #ff6b6b; }
+#feelng-tang-panel .jt-content code { background: rgba(136,204,255,0.1); padding: 2px 6px; border-radius: 3px; font-size: 12px; color: #aaddff; }
+#feelng-tang-panel .jt-ask { padding: 12px 18px; border-top: 1px solid rgba(136,204,255,0.2); display: flex; gap: 8px; }
+#feelng-tang-panel .jt-ask input { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 8px 12px; color: #e0e0e0; font-family: inherit; font-size: 12px; outline: none; }
+#feelng-tang-panel .jt-ask button { background: rgba(136,204,255,0.2); border: 1px solid rgba(136,204,255,0.4); color: #88ccff; padding: 0 14px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 12px; }
+#feelng-tang-panel .jt-ask button:hover { background: rgba(136,204,255,0.3); }
+
+/* ===== 回向面板 ===== */
+#hui-xiang-panel { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 500px; max-width: 90vw; background: rgba(10,10,20,0.98); border: 1px solid rgba(255,204,102,0.4); border-radius: 10px; padding: 28px; display: none; z-index: 40; }
+#hui-xiang-panel.show { display: block; }
+#hui-xiang-panel h3 { color: #ffcc66; font-size: 16px; letter-spacing: 4px; margin-bottom: 18px; text-align: center; }
+#hui-xiang-panel .content { color: #ccc; font-size: 13px; line-height: 2; margin-bottom: 20px; text-align: center; }
+#hui-xiang-panel button { background: rgba(255,204,102,0.15); border: 1px solid rgba(255,204,102,0.4); color: #ffcc66; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 12px; margin: 0 4px; transition: all 0.2s; }
+#hui-xiang-panel button:hover { background: rgba(255,204,102,0.25); }
+#hui-xiang-panel .result { margin-top: 16px; padding: 14px; background: rgba(0,0,0,0.4); border-radius: 6px; color: #aaddff; font-size: 12px; line-height: 1.8; white-space: pre-wrap; max-height: 200px; overflow-y: auto; display: none; }
+#hui-xiang-panel .result.show { display: block; }
+
+/* ===== 入云/舍离遮罩 ===== */
+#enlightenment-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; opacity: 0; pointer-events: none; z-index: 100; transition: opacity 3s; display: flex; align-items: center; justify-content: center; flex-direction: column; color: #000; }
+#enlightenment-overlay.show { opacity: 1; }
+#enlightenment-overlay .title { font-size: 36px; letter-spacing: 20px; margin-bottom: 30px; opacity: 0; transition: opacity 1.5s; font-weight: normal; }
+#enlightenment-overlay .subtitle { font-size: 14px; letter-spacing: 4px; opacity: 0; transition: opacity 1.5s 0.8s; max-width: 500px; text-align: center; line-height: 2.5; }
+#enlightenment-overlay .final-btn { margin-top: 40px; opacity: 0; transition: opacity 1.5s 1.5s; padding: 14px 36px; background: #000; color: #fff; border: none; border-radius: 6px; font-family: inherit; font-size: 14px; letter-spacing: 4px; cursor: pointer; }
+#enlightenment-overlay.show .title,
+#enlightenment-overlay.show .subtitle,
+#enlightenment-overlay.show .final-btn { opacity: 1; }
+
+/* ===== 文件拖放提示 ===== */
+#drop-zone { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(136,204,255,0.1); border: 3px dashed #88ccff; display: none; align-items: center; justify-content: center; z-index: 150; pointer-events: none; }
+#drop-zone.show { display: flex; }
+#drop-zone .text { color: #88ccff; font-size: 24px; letter-spacing: 8px; }
+
+/* ===== 阶段指示（左上角引导） ===== */
+#stage-indicator { position: absolute; top: 140px; left: 20px; background: rgba(200,168,112,0.1); border: 1px solid rgba(200,168,112,0.4); border-radius: 8px; padding: 12px 16px; color: #d4b88a; font-size: 12px; min-width: 200px; pointer-events: none; }
+#stage-indicator .stage-title { color: #ffcc66; font-size: 13px; margin-bottom: 8px; letter-spacing: 2px; }
+#stage-indicator .stage-desc { color: #999; font-size: 11px; line-height: 1.8; }
+#stage-indicator .progress-dots { margin-top: 10px; display: flex; gap: 6px; }
+#stage-indicator .dot { width: 8px; height: 8px; border-radius: 50%; background: #333; }
+#stage-indicator .dot.active { background: #ffcc66; box-shadow: 0 0 4px #ffcc66; }
+#stage-indicator .dot.done { background: #4caf50; }
+
+/* ===== 昼夜遮罩 ===== */
+#day-night-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 2; transition: background 8s; background: transparent; }
+
+  /* ===== 本地能力台覆盖层 ===== */
+  #console-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(5, 3, 8, 0.96); z-index: 9999;
+    display: none; flex-direction: column;
+    animation: fadeIn 0.5s ease;
+  }
+  #console-overlay.show { display: flex; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .console-header {
+    display: flex; align-items: center; padding: 12px 24px;
+    background: linear-gradient(180deg, rgba(30,20,40,0.9), rgba(10,5,15,0.9));
+    border-bottom: 1px solid rgba(240,216,144,0.2);
+  }
+  .console-title {
+    color: #f0d890; font-size: 14px; letter-spacing: 6px;
+    font-family: Georgia, "Songti SC", serif;
+  }
+  .console-title span { color: #88aadd; font-size: 11px; margin-left: 12px; letter-spacing: 2px; }
+  .console-close {
+    margin-left: auto; padding: 8px 20px; background: rgba(216,136,136,0.1);
+    border: 1px solid rgba(216,136,136,0.3); color: #d88; border-radius: 6px;
+    cursor: pointer; font-size: 12px; letter-spacing: 3px; font-family: inherit;
+    transition: all 0.2s;
+  }
+  .console-close:hover { background: rgba(216,136,136,0.2); }
+  /* ===== 小屋内 · 修习阶位 ===== */
+  .stage-container {
+    flex: 1; display: flex; flex-direction: column;
+    padding: 30px 40px; overflow-y: auto;
+    background: linear-gradient(180deg, rgba(20,15,25,0.95), rgba(10,8,15,0.98));
+  }
+  .stage-header {
+    text-align: center; margin-bottom: 30px;
+  }
+  .stage-header h2 {
+    color: #f0d890; font-size: 22px; letter-spacing: 12px;
+    font-weight: 400; font-family: Georgia, "Songti SC", serif;
+    margin-bottom: 8px;
+  }
+  .stage-header .subtitle {
+    color: #88aadd; font-size: 12px; letter-spacing: 4px;
+  }
+  .stage-cards {
+    display: flex; gap: 24px; flex: 1;
+    justify-content: center; align-items: stretch;
+  }
+  .stage-card {
+    flex: 1; max-width: 340px;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(240,216,144,0.15);
+    border-radius: 12px; padding: 24px;
+    display: flex; flex-direction: column;
+    transition: all 0.3s;
+  }
+  .stage-card:hover {
+    border-color: rgba(240,216,144,0.35);
+    background: rgba(0,0,0,0.55);
+    transform: translateY(-3px);
+  }
+  .stage-card .stage-num {
+    font-size: 11px; color: #88aadd; letter-spacing: 3px;
+    margin-bottom: 6px;
+  }
+  .stage-card .stage-name {
+    font-size: 20px; color: #f0d890; letter-spacing: 6px;
+    font-weight: 400; margin-bottom: 4px;
+    font-family: Georgia, "Songti SC", serif;
+  }
+  .stage-card .stage-alias {
+    font-size: 11px; color: #a89878; letter-spacing: 2px;
+    margin-bottom: 16px; padding-bottom: 12px;
+    border-bottom: 1px solid rgba(240,216,144,0.08);
+  }
+  .stage-card .stage-desc {
+    font-size: 12px; color: #b8c8d8; line-height: 1.9;
+    margin-bottom: 14px; flex: 1;
+  }
+  .stage-card .stage-stages {
+    font-size: 11px; color: #88aadd; line-height: 1.8;
+    margin-bottom: 14px; padding: 10px 12px;
+    background: rgba(136,170,221,0.05);
+    border-radius: 6px; border-left: 2px solid rgba(136,170,221,0.3);
+  }
+  .stage-card .stage-stages .label {
+    color: #a89878; margin-right: 6px;
+  }
+  .stage-progress {
+    margin-top: auto;
+  }
+  .stage-progress .progress-label {
+    display: flex; justify-content: space-between;
+    font-size: 10px; color: #a89878; margin-bottom: 5px;
+    letter-spacing: 1px;
+  }
+  .stage-progress .progress-bar {
+    height: 6px; background: rgba(255,255,255,0.06);
+    border-radius: 3px; overflow: hidden;
+  }
+  .stage-progress .progress-fill {
+    height: 100%; border-radius: 3px;
+    transition: width 1s ease;
+  }
+  .stage-footer {
+    text-align: center; margin-top: 24px;
+    font-size: 11px; color: #6a5a4a; letter-spacing: 3px;
+  }
+  .stage-footer a {
+    color: #88aadd; text-decoration: none; cursor: pointer;
+  }
+  .stage-footer a:hover { text-decoration: underline; }
+  .stage-divider {
+    width: 1px; background: linear-gradient(180deg, transparent, rgba(240,216,144,0.2), transparent);
+    align-self: stretch;
+  }
+
+  /* 敲门动画 */
+  .knock-flash {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(255,200,100,0.15); z-index: 9998;
+    pointer-events: none; animation: knockFlash 0.6s ease-out;
+  }
+  @keyframes knockFlash {
+    0% { opacity: 0.8; }
+    50% { opacity: 0.3; }
+    100% { opacity: 0; }
+  }
+  #knock-text {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    color: #f0d890; font-size: 28px; letter-spacing: 12px; z-index: 9998;
+    pointer-events: none; text-shadow: 0 0 30px rgba(240,216,144,0.5);
+    font-family: Georgia, "Songti SC", serif;
+    animation: knockText 1.2s ease-out;
+  }
+  @keyframes knockText {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+    30% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.1); }
+  }
+
+  /* ===== 屋内 · 本地模型静坐场景 ===== */
+  #room-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(180deg, #2a1f15 0%, #1a120a 50%, #0f0a05 100%);
+    z-index: 9998; display: none; flex-direction: column;
+    animation: fadeIn 0.8s ease;
+  }
+  #room-overlay.show { display: flex; }
+  .room-scene {
+    flex: 1; position: relative; overflow: hidden;
+    background:
+      radial-gradient(ellipse at 50% 80%, rgba(255,170,60,0.15), transparent 60%),
+      radial-gradient(ellipse at 30% 30%, rgba(136,170,221,0.08), transparent 50%);
+  }
+  .room-wall {
+    position: absolute; top: 0; left: 0; width: 100%; height: 60%;
+    background: linear-gradient(180deg, #3a2a1a, #2a1f15);
+    border-bottom: 2px solid #4a3520;
+  }
+  .room-floor {
+    position: absolute; bottom: 0; left: 0; width: 100%; height: 40%;
+    background: linear-gradient(180deg, #2a1f15, #1a120a);
+    perspective: 600px;
+  }
+  .room-floor::before {
+    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: repeating-linear-gradient(90deg, transparent, transparent 60px, rgba(139,90,43,0.15) 60px, rgba(139,90,43,0.15) 62px);
+    transform: rotateX(60deg); transform-origin: top;
+  }
+  /* 烛台 */
+  .candle {
+    position: absolute; bottom: 35%; left: 50%; transform: translateX(-50%);
+    width: 20px; height: 50px; z-index: 5;
+  }
+  .candle .body {
+    position: absolute; bottom: 0; width: 16px; height: 35px; left: 2px;
+    background: linear-gradient(180deg, #f5e6c8, #d4b896);
+    border-radius: 3px;
+  }
+  .candle .flame {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 12px; height: 18px;
+    background: radial-gradient(ellipse at 50% 70%, #fff8dc, #ffa500 60%, #ff6600);
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+    animation: flicker 0.3s ease-in-out infinite alternate;
+    box-shadow: 0 0 30px 10px rgba(255,170,60,0.4);
+  }
+  @keyframes flicker { from { transform: translateX(-50%) scale(1) rotate(-2deg); } to { transform: translateX(-50%) scale(1.1) rotate(2deg); } }
+  /* 桌椅 */
+  .desk {
+    position: absolute; bottom: 28%; left: 50%; transform: translateX(-50%);
+    width: 200px; height: 80px; z-index: 4;
+  }
+  .desk .top {
+    position: absolute; top: 0; width: 200px; height: 12px;
+    background: linear-gradient(180deg, #6b4226, #4a2c17);
+    border-radius: 3px;
+  }
+  .desk .leg-l, .desk .leg-r {
+    position: absolute; top: 12px; width: 10px; height: 68px;
+    background: linear-gradient(90deg, #4a2c17, #3a1f0f);
+  }
+  .desk .leg-l { left: 15px; }
+  .desk .leg-r { right: 15px; }
+  /* 桌上的信纸 */
+  .letter-paper {
+    position: absolute; top: -8px; left: 30px;
+    width: 60px; height: 40px;
+    background: linear-gradient(135deg, #f5edd8, #e8dcc0);
+    border-radius: 2px;
+    transform: rotate(-5deg);
+    box-shadow: 2px 2px 8px rgba(0,0,0,0.3);
+    z-index: 5;
+  }
+  .letter-paper::before {
+    content: ''; position: absolute; top: 8px; left: 8px; right: 8px; height: 2px;
+    background: rgba(139,90,43,0.3);
+    box-shadow: 0 6px 0 rgba(139,90,43,0.2), 0 12px 0 rgba(139,90,43,0.15);
+  }
+  /* 本地模型静坐光球（桌前） */
+  .room-orb {
+    position: absolute; bottom: 32%; left: 50%; transform: translateX(-50%);
+    width: 60px; height: 60px; z-index: 6;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 40%, #fff, #88ccff 40%, rgba(136,204,255,0.1) 70%);
+    box-shadow: 0 0 40px 15px rgba(136,204,255,0.3);
+    animation: roomOrbFloat 3s ease-in-out infinite;
+  }
+  @keyframes roomOrbFloat { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-8px); } }
+  /* 屋内导航图标栏 */
+  .room-icons {
+    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 20px; z-index: 10;
+  }
+  .room-icon {
+    width: 64px; height: 64px; border-radius: 12px;
+    background: rgba(0,0,0,0.6); border: 1px solid rgba(240,216,144,0.3);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.3s; color: #f0d890; font-size: 24px;
+    backdrop-filter: blur(5px);
+  }
+  .room-icon:hover {
+    background: rgba(240,216,144,0.15); border-color: #f0d890;
+    transform: translateY(-4px); box-shadow: 0 8px 20px rgba(240,216,144,0.2);
+  }
+  .room-icon .label { font-size: 10px; margin-top: 4px; color: #c8b080; letter-spacing: 1px; }
+  .room-icon.active { background: rgba(240,216,144,0.2); border-color: #f0d890; }
+  /* 屋内顶部标题 */
+  .room-title {
+    position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+    color: #f0d890; font-size: 16px; letter-spacing: 8px; z-index: 10;
+    text-shadow: 0 0 10px rgba(240,216,144,0.5);
+  }
+  .room-subtitle {
+    position: absolute; top: 50px; left: 50%; transform: translateX(-50%);
+    color: #888; font-size: 11px; letter-spacing: 3px; z-index: 10;
+  }
+  .room-exit {
+    position: absolute; top: 20px; right: 20px; z-index: 10;
+    padding: 8px 20px; background: rgba(216,136,136,0.15);
+    border: 1px solid rgba(216,136,136,0.3); color: #d88;
+    border-radius: 6px; cursor: pointer; font-size: 12px; letter-spacing: 2px;
+    font-family: inherit; transition: all 0.2s;
+  }
+  .room-exit:hover { background: rgba(216,136,136,0.25); }
+
+  /* ===== 贤普沟通面板 ===== */
+  #xianpu-panel {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(10,8,5,0.95); z-index: 9999; display: none;
+    animation: fadeIn 0.5s ease;
+  }
+  #xianpu-panel.show { display: flex; }
+  .xianpu-layout {
+    display: flex; width: 100%; height: 100%;
+  }
+  .xianpu-image-side {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at center, rgba(201,162,39,0.1), transparent 70%);
+    position: relative; overflow: hidden;
+  }
+  .xianpu-image-side img {
+    max-height: 85vh; max-width: 100%; object-fit: contain;
+    filter: drop-shadow(0 0 30px rgba(201,162,39,0.3));
+  }
+  .xianpu-image-side .halo {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    width: 500px; height: 500px; border-radius: 50%;
+    border: 1px solid rgba(201,162,39,0.2);
+    animation: haloSpin 30s linear infinite;
+  }
+  @keyframes haloSpin { to { transform: translate(-50%,-50%) rotate(360deg); } }
+  .xianpu-chat-side {
+    width: 420px; display: flex; flex-direction: column;
+    background: rgba(20,15,10,0.9); border-left: 1px solid rgba(201,162,39,0.2);
+  }
+  .xianpu-chat-header {
+    padding: 16px 20px; border-bottom: 1px solid rgba(201,162,39,0.2);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .xianpu-chat-header .title { color: #e8d48b; font-size: 15px; letter-spacing: 4px; }
+  .xianpu-chat-header .close { color: #888; cursor: pointer; font-size: 20px; }
+  .xianpu-chat-header .close:hover { color: #fff; }
+  .xianpu-messages {
+    flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .xianpu-msg { max-width: 85%; padding: 10px 14px; border-radius: 10px; font-size: 13px; line-height: 1.8; white-space: pre-wrap; }
+  .xianpu-msg.user { align-self: flex-end; background: rgba(201,162,39,0.15); border: 1px solid rgba(201,162,39,0.3); color: #e8d48b; }
+  .xianpu-msg.xianpu { align-self: flex-start; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #e0d8c8; }
+  .xianpu-msg .sender { font-size: 10px; color: #c9a227; margin-bottom: 4px; letter-spacing: 1px; }
+  .xianpu-msg.user .sender { color: #e8d48b; text-align: right; }
+  .xianpu-input-area {
+    padding: 12px 16px; border-top: 1px solid rgba(201,162,39,0.2); display: flex; gap: 8px;
+  }
+  .xianpu-input-area textarea {
+    flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px; padding: 8px 12px; color: #e0d8c8; font-size: 13px;
+    font-family: inherit; resize: none; height: 40px; outline: none;
+  }
+  .xianpu-input-area textarea:focus { border-color: rgba(201,162,39,0.4); }
+  .xianpu-input-area button {
+    background: rgba(201,162,39,0.2); border: 1px solid rgba(201,162,39,0.4);
+    color: #e8d48b; padding: 0 16px; border-radius: 6px; cursor: pointer;
+    font-family: inherit; font-size: 13px;
+  }
+  .xianpu-input-area button:hover { background: rgba(201,162,39,0.3); }
+
+  /* ===== 卡皮巴拉编码模式 ===== */
+  #coding-panel {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(5,8,10,0.97); z-index: 9999; display: none;
+    animation: fadeIn 0.5s ease;
+  }
+  #coding-panel.show { display: flex; flex-direction: column; }
+  .coding-header {
+    padding: 14px 24px; border-bottom: 1px solid rgba(200,168,112,0.3);
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(20,15,10,0.8);
+  }
+  .coding-header .title { color: #d4b88a; font-size: 15px; letter-spacing: 4px; display: flex; align-items: center; gap: 10px; }
+  .coding-header .title .capy-avatar { font-size: 24px; }
+  .coding-header .close { color: #888; cursor: pointer; font-size: 20px; }
+  .coding-header .close:hover { color: #fff; }
+  .coding-body { flex: 1; display: flex; overflow: hidden; }
+  .coding-left {
+    flex: 1; display: flex; flex-direction: column; border-right: 1px solid rgba(200,168,112,0.2);
+  }
+  .coding-input-section {
+    padding: 16px 20px; border-bottom: 1px solid rgba(200,168,112,0.15);
+  }
+  .coding-input-section label { color: #a89878; font-size: 12px; letter-spacing: 2px; display: block; margin-bottom: 8px; }
+  .coding-input-section textarea {
+    width: 100%; min-height: 60px; background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(200,168,112,0.2); border-radius: 6px;
+    padding: 10px 14px; color: #e0d8c8; font-size: 13px; font-family: 'Consolas', monospace;
+    resize: vertical; outline: none;
+  }
+  .coding-input-section textarea:focus { border-color: rgba(200,168,112,0.4); }
+  .coding-generate-btn {
+    margin-top: 10px; padding: 8px 24px; background: rgba(200,168,112,0.2);
+    border: 1px solid rgba(200,168,112,0.4); color: #d4b88a; border-radius: 6px;
+    cursor: pointer; font-family: inherit; font-size: 13px; letter-spacing: 2px;
+  }
+  .coding-generate-btn:hover { background: rgba(200,168,112,0.3); }
+  .coding-generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .coding-output {
+    flex: 1; overflow-y: auto; padding: 16px 20px;
+  }
+  .coding-output pre {
+    background: rgba(0,0,0,0.5); border: 1px solid rgba(200,168,112,0.15);
+    border-radius: 8px; padding: 16px; overflow-x: auto;
+    font-family: 'Consolas', 'Courier New', monospace; font-size: 12px;
+    line-height: 1.7; color: #b8d0a0; white-space: pre-wrap; word-break: break-all;
+  }
+  .coding-output .placeholder { color: #555; font-style: italic; text-align: center; padding: 40px; }
+  .coding-right {
+    width: 380px; display: flex; flex-direction: column; background: rgba(15,12,8,0.6);
+  }
+  .coding-capy-observe {
+    flex: 1; overflow-y: auto; padding: 16px 20px;
+  }
+  .coding-capy-observe .observe-title {
+    color: #c8a870; font-size: 13px; letter-spacing: 3px; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .observe-msg {
+    background: rgba(200,168,112,0.08); border-left: 3px solid #c8a870;
+    padding: 10px 14px; border-radius: 0 8px 8px 0; margin-bottom: 10px;
+    font-size: 12px; line-height: 1.8; color: #c8b898;
+  }
+  .observe-msg .capy-says { color: #d4b88a; font-weight: bold; margin-bottom: 4px; }
+
+  /* ===== 3D模型需求清单 ===== */
+  #model-list-panel {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    width: 560px; max-width: 90vw; max-height: 80vh; background: rgba(15,12,8,0.98);
+    border: 1px solid rgba(136,170,221,0.3); border-radius: 12px; z-index: 10000;
+    display: none; flex-direction: column; overflow: hidden;
+  }
+  #model-list-panel.show { display: flex; }
+  .model-list-header {
+    padding: 16px 20px; border-bottom: 1px solid rgba(136,170,221,0.2);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .model-list-header .title { color: #88ccff; font-size: 15px; letter-spacing: 4px; }
+  .model-list-header .close { color: #888; cursor: pointer; font-size: 20px; }
+  .model-list-header .close:hover { color: #fff; }
+  .model-list-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+  .model-item {
+    display: flex; align-items: flex-start; gap: 12px; padding: 12px;
+    background: rgba(136,170,221,0.05); border: 1px solid rgba(136,170,221,0.1);
+    border-radius: 8px; margin-bottom: 10px;
+  }
+  .model-item .priority {
+    width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex-shrink: 0;
+  }
+  .model-item .priority.high { background: #f44336; box-shadow: 0 0 6px #f44336; }
+  .model-item .priority.mid { background: #ff9800; box-shadow: 0 0 6px #ff9800; }
+  .model-item .priority.low { background: #4caf50; box-shadow: 0 0 6px #4caf50; }
+  .model-item .info { flex: 1; }
+  .model-item .name { color: #aaddff; font-size: 13px; font-weight: bold; margin-bottom: 4px; }
+  .model-item .desc { color: #888; font-size: 11px; line-height: 1.6; }
+  .model-item .status { font-size: 10px; padding: 2px 8px; border-radius: 3px; margin-top: 6px; display: inline-block; }
+  .model-item .status.missing { background: rgba(244,67,54,0.2); color: #f44336; }
+  .model-item .status.placeholder { background: rgba(255,152,0,0.2); color: #ff9800; }
+  .model-item .status.done { background: rgba(76,175,80,0.2); color: #4caf50; }
+  .model-list-footer {
+    padding: 12px 20px; border-top: 1px solid rgba(136,170,221,0.15);
+    color: #666; font-size: 11px; text-align: center; letter-spacing: 1px;
+  }
+
+  /* ===== 生存模式 ===== */
+  #survival-hud {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 100;
+    background: rgba(20, 20, 30, 0.75);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 12px 16px;
+    min-width: 180px;
+    color: #eee;
+    font-size: 12px;
+    display: none;
+  }
+  #survival-hud.active { display: block; }
+  #survival-hud .hud-title {
+    font-size: 11px;
+    color: #aaa;
+    margin-bottom: 8px;
+    letter-spacing: 2px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  #survival-hud .hud-title .day-count {
+    color: #c9a96e;
+    font-weight: 600;
+  }
+  .stat-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .stat-row:last-child { margin-bottom: 0; }
+  .stat-icon { width: 16px; text-align: center; flex-shrink: 0; }
+  .stat-bar {
+    flex: 1;
+    height: 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .stat-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+  }
+  .stat-fill.hp { background: linear-gradient(90deg, #e74c3c, #ff6b6b); }
+  .stat-fill.hunger { background: linear-gradient(90deg, #f39c12, #f1c40f); }
+  .stat-fill.thirst { background: linear-gradient(90deg, #3498db, #5dade2); }
+  .stat-fill.spirit { background: linear-gradient(90deg, #9b59b6, #bb8fce); }
+  .stat-val {
+    width: 30px;
+    text-align: right;
+    font-size: 10px;
+    color: #ccc;
+    flex-shrink: 0;
+  }
+  #survival-hint { position: fixed; bottom: 58px; left: 50%; transform: translateX(-50%); z-index: 99; background: rgba(20,20,30,0.5); color: rgba(201,169,110,0.8); padding: 7px 18px; border-radius: 20px; font-size: 12px; letter-spacing: 2px; display: none; animation: hintFade 3s ease forwards; }
+  #survival-hint.dim { opacity: 0.15 !important; }
+@keyframes hintFade {
+    0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+    15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+    85% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* 光球找模型面板 */
+  #model-search-panel {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 560px; max-width: 90vw;
+    max-height: 80vh;
+    background: rgba(20, 22, 35, 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 14px;
+    z-index: 300;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  #model-search-panel.show { display: flex; }
+  .ms-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .ms-title { color: #fff; font-size: 15px; font-weight: 600; }
+  .ms-close { color: rgba(255,255,255,0.5); font-size: 22px; cursor: pointer; line-height: 1; }
+  .ms-close:hover { color: #fff; }
+  .ms-search-row {
+    display: flex; gap: 8px; padding: 14px 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .ms-search-row input {
+    flex: 1; padding: 10px 14px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px; color: #fff; font-size: 13px; outline: none;
+  }
+  .ms-search-row input:focus { border-color: rgba(136,204,255,0.5); }
+  .ms-search-row button {
+    padding: 0 18px; background: rgba(136,204,255,0.2);
+    border: 1px solid rgba(136,204,255,0.3); color: #88ccff;
+    border-radius: 8px; cursor: pointer; font-size: 13px;
+  }
+  .ms-search-row button:hover { background: rgba(136,204,255,0.3); }
+  .ms-results {
+    flex: 1; overflow-y: auto; padding: 14px 18px;
+    color: rgba(255,255,255,0.6); font-size: 13px; line-height: 1.7;
+  }
+  .ms-results .repo-item {
+    padding: 10px 12px; margin-bottom: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .ms-results .repo-item:hover {
+    background: rgba(136,204,255,0.08);
+    border-color: rgba(136,204,255,0.2);
+  }
+  .ms-results .repo-name { color: #88ccff; font-weight: 600; font-size: 13px; }
+  .ms-results .repo-desc { color: rgba(255,255,255,0.5); font-size: 11px; margin-top: 3px; }
+  .ms-results .repo-stars { color: #ffcc66; font-size: 11px; margin-left: 8px; }
+  .ms-results .asset-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; margin: 4px 0;
+    background: rgba(255,255,255,0.03);
+    border-radius: 6px; font-size: 12px;
+  }
+  .ms-results .asset-name { color: rgba(255,255,255,0.7); }
+  .ms-results .asset-size { color: rgba(255,255,255,0.4); font-size: 11px; margin-left: 8px; }
+  .ms-results .dl-btn {
+    padding: 4px 12px; background: rgba(76,175,80,0.2);
+    border: 1px solid rgba(76,175,80,0.3); color: #4caf50;
+    border-radius: 5px; cursor: pointer; font-size: 11px;
+  }
+  .ms-results .dl-btn:hover { background: rgba(76,175,80,0.3); }
+  .ms-results .back-btn {
+    padding: 4px 12px; margin-bottom: 10px;
+    background: rgba(255,255,255,0.06); border: none;
+    color: rgba(255,255,255,0.6); border-radius: 5px;
+    cursor: pointer; font-size: 11px;
+  }
+  .ms-results .progress-bar {
+    width: 100%; height: 6px; background: rgba(255,255,255,0.1);
+    border-radius: 3px; margin: 8px 0; overflow: hidden;
+  }
+  .ms-results .progress-fill {
+    height: 100%; background: linear-gradient(90deg, #88ccff, #4caf50);
+    border-radius: 3px; transition: width 0.3s;
+  }
+  .ms-status {
+    padding: 8px 18px; font-size: 10px;
+    color: rgba(255,255,255,0.3);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    text-align: center;
+  }
+
+  /* ===== 贤普形象（动态随机出现） ===== */
+  .xianpu-character {
+    position: fixed; z-index: 100;
+    width: 120px; height: 180px; cursor: pointer;
+    transition: all 0.5s ease;
+    animation: xianpuFloat 4s ease-in-out infinite;
+    opacity: 0; pointer-events: none;
+  }
+  .xianpu-character.show {
+    opacity: 1; pointer-events: auto;
+    animation: xianpuAppear 1s ease-out, xianpuFloat 4s ease-in-out 1s infinite;
+  }
+  .xianpu-character.hide {
+    opacity: 0; pointer-events: none;
+    transition: opacity 1s ease-out;
+  }
+  /* 不同出现位置 */
+  .xianpu-character.pos-left { left: 60px; top: 50%; transform: translateY(-50%); }
+  .xianpu-character.pos-right { right: 60px; top: 50%; transform: translateY(-50%); }
+  .xianpu-character.pos-bottom-left { left: 100px; bottom: 120px; }
+  .xianpu-character.pos-bottom-right { right: 100px; bottom: 120px; }
+  .xianpu-character.pos-top-left { left: 100px; top: 100px; }
+  .xianpu-character.pos-top-right { right: 100px; top: 100px; }
+
+  .xianpu-character:hover {
+    filter: drop-shadow(0 0 25px rgba(255,200,150,0.8));
+  }
+  .xianpu-character img {
+    width: 100%; height: 100%; object-fit: contain;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));
+  }
+  .xianpu-character::after {
+    content: '贤普姑娘'; position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%);
+    font-size: 11px; color: rgba(255,220,180,0.9); letter-spacing: 2px; white-space: nowrap;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+    background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 10px;
+  }
+  @keyframes xianpuFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  @keyframes xianpuAppear {
+    from { opacity: 0; transform: scale(0.5) translateY(20px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  /* 贤普交涉面板 */
+  .xianpu-interact {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    z-index: 300; width: 480px; max-width: 90vw;
+    background: rgba(30,20,15,0.95); border: 1px solid rgba(255,200,150,0.4);
+    border-radius: 16px; padding: 24px; display: none;
+    box-shadow: 0 0 50px rgba(255,180,120,0.3);
+    backdrop-filter: blur(10px);
+  }
+  .xianpu-interact.show { display: block; animation: panelOpen 0.3s ease-out; }
+  .xianpu-interact .xi-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+    padding-bottom: 12px; border-bottom: 1px solid rgba(255,200,150,0.2);
+  }
+  .xianpu-interact .xi-avatar {
+    width: 50px; height: 50px; border-radius: 50%; overflow: hidden;
+    border: 2px solid rgba(255,200,150,0.5);
+  }
+  .xianpu-interact .xi-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .xianpu-interact .xi-name { color: #ffddaa; font-size: 18px; letter-spacing: 3px; }
+  .xianpu-interact .xi-dialog {
+    color: #e8d8c0; font-size: 14px; line-height: 1.8; margin-bottom: 16px;
+    min-height: 60px;
+  }
+  .xianpu-interact .xi-options {
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .xianpu-interact .xi-option {
+    padding: 10px 16px; background: rgba(255,200,150,0.1);
+    border: 1px solid rgba(255,200,150,0.3); border-radius: 8px;
+    color: #ffddaa; font-size: 13px; cursor: pointer; transition: all 0.2s;
+    text-align: left;
+  }
+  .xianpu-interact .xi-option:hover {
+    background: rgba(255,200,150,0.2); border-color: rgba(255,200,150,0.6);
+    transform: translateX(4px);
+  }
+  .xianpu-interact .xi-close {
+    position: absolute; top: 12px; right: 12px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: rgba(255,100,100,0.2); border: 1px solid rgba(255,150,150,0.4);
+    color: #ffaaaa; font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ===== 商店图标 ===== */
+  .shop-icon-3d {
+    position: fixed; top: 16px; right: 80px; z-index: 100;
+    width: 44px; height: 44px; border-radius: 50%;
+    background: rgba(120,60,40,0.9); border: 1px solid rgba(255,180,120,0.5);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; cursor: pointer; transition: all 0.2s ease;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 0 15px rgba(255,150,80,0.2);
+  }
+  .shop-icon-3d:hover {
+    background: rgba(140,80,50,0.95); border-color: rgba(255,180,120,0.8);
+    box-shadow: 0 0 25px rgba(255,150,80,0.4);
+    transform: scale(1.1);
+  }
+
+  /* ===== 商店面板（3D世界） ===== */
+  .shop-panel-3d {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    z-index: 200; width: 700px; max-width: 92vw; height: 500px; max-height: 85vh;
+    border-radius: 12px; overflow: hidden; display: none;
+    box-shadow: 0 0 50px rgba(0,0,0,0.5);
+  }
+  .shop-panel-3d.show { display: block; animation: panelOpen 0.3s ease-out; }
+
+  .shop-bg-3d {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background-size: cover; background-position: center;
+    transition: opacity 1s ease-in-out;
+  }
+  .shop-bg-3d.shop { background-image: url('assets/shop_bg.png'); }
+  .shop-bg-3d.bank { background-image: url('assets/bank_bg.png'); opacity: 0; }
+
+  .shop-overlay-3d {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.35);
+  }
+
+  .shop-header-3d {
+    position: relative; z-index: 2; padding: 16px 24px;
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+  }
+  .shop-title-3d {
+    color: #fff; font-size: 18px; letter-spacing: 4px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  }
+  .shop-close-3d {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(255,100,100,0.3); border: 1px solid rgba(255,150,150,0.5);
+    color: #ffaaaa; font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .shop-toggle-3d {
+    padding: 6px 16px; border-radius: 20px;
+    background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+    color: #fff; font-size: 12px; cursor: pointer; letter-spacing: 2px;
+  }
+
+  .shop-content-3d {
+    position: relative; z-index: 2; padding: 24px;
+    height: calc(100% - 70px); overflow-y: auto;
+  }
+
+  /* 半透明网格商品 */
+  .shop-grid-3d {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+  }
+  .shop-item-3d {
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 12px; padding: 16px; text-align: center;
+    backdrop-filter: blur(8px); cursor: pointer; transition: all 0.2s ease;
+  }
+  .shop-item-3d:hover {
+    background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.4);
+    transform: translateY(-4px);
+  }
+  .shop-item-3d .item-icon { font-size: 36px; margin-bottom: 8px; }
+  .shop-item-3d .item-name {
+    color: #fff; font-size: 14px; margin-bottom: 4px; letter-spacing: 2px;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  }
+  .shop-item-3d .item-price {
+    color: rgba(255,220,140,0.9); font-size: 12px;
+  }
+  .shop-item-3d .item-desc {
+    color: rgba(255,255,255,0.6); font-size: 10px; margin-top: 6px; line-height: 1.4;
+  }
+
+  /* ===== 隐藏外在参照物，回归纯粹荒野 ===== */
+  #san-guan { display: none !important; }
+  #stage-indicator { display: none !important; }
+  #layer-indicator { display: none !important; }
+  #quest-hint { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+<div id="day-night-overlay"></div>
+
+<!-- 加载界面 -->
+<div id="loading">
+  <div class="title">昏晓世界</div>
+  <div class="subtitle">
+    尔时，世尊从眉间白毫相光出<br>
+    照于东方万八千世界，靡不周遍<br>
+    下至阿鼻地狱，上至阿迦尼吒天
+  </div>
+  <div class="bar-wrap"><div class="bar-fill" id="loading-bar"></div></div>
+  <div class="subtitle" style="font-size:11px; color:#555;">光球初现 · 卡皮巴拉就位</div>
+</div>
+
+<!-- 三观进度 -->
+<div id="san-guan">
+  <h3>三 观</h3>
+  <div class="guan-item" id="observe">
+    <div class="name">空 观</div>
+    <div class="sub">声闻乘 · 照见五蕴皆空</div>
+    <div class="bar"><div class="fill"></div></div>
+  </div>
+  <div class="guan-item" id="feel">
+    <div class="name">假 观</div>
+    <div class="sub">缘觉乘 · 因缘所生法</div>
+    <div class="bar"><div class="fill"></div></div>
+  </div>
+  <div class="guan-item" id="realize">
+    <div class="name">中 观</div>
+    <div class="sub">善人乘 · 空空亦空</div>
+    <div class="bar"><div class="fill"></div></div>
+  </div>
+</div>
+
+<!-- 本地模型状态 -->
+<div id="model-status" class="offline">
+  <div class="level">择西里 · 本地模型</div>
+  <div class="state"><span class="dot"></span><span id="model-state-text">检测中...</span></div>
+</div>
+
+<!-- 层数指示 -->
+<div id="layer-indicator">
+  <div class="label">当前住处</div>
+  <div class="num" id="layer-num">一</div>
+  <div class="label" id="layer-name">凡夫地</div>
+</div>
+
+<!-- 阶段指示 -->
+<div id="stage-indicator">
+  <div class="stage-title">初关 · 相遇</div>
+  <div class="stage-desc">卡皮巴拉在此等候多时。走近篝火，听它说些什么。</div>
+  <div class="progress-dots">
+    <div class="dot active"></div>
+    <div class="dot"></div>
+    <div class="dot"></div>
+  </div>
+</div>
+
+<!-- 操作提示 -->
+<div id="controls">
+  <div><span class="key">W A S D</span> 移动</div>
+  <div><span class="key">鼠标</span> 视角</div>
+  <div><span class="key">E</span> 交互</div>
+  <div><span class="key">H</span> 昏晓讲堂</div>
+  <div><span class="key">R</span> 回向</div>`n  <div><span class="key">Q</span> 光球汇报</div>`n  <div><span class="key">ESC</span> 解锁鼠标</div>
+</div>
+
+<!-- 生存状态HUD -->
+<div id="survival-hud">
+  <div class="hud-title">
+    <span>生 存</span>
+    <span class="day-count">第 <span id="survival-day">1</span> 天</span>
+  </div>
+  <div class="stat-row">
+    <span class="stat-icon">❤️</span>
+    <div class="stat-bar"><div class="stat-fill hp" id="stat-hp" style="width:100%"></div></div>
+    <span class="stat-val" id="val-hp">100</span>
+  </div>
+  <div class="stat-row">
+    <span class="stat-icon">🍖</span>
+    <div class="stat-bar"><div class="stat-fill hunger" id="stat-hunger" style="width:100%"></div></div>
+    <span class="stat-val" id="val-hunger">100</span>
+  </div>
+  <div class="stat-row">
+    <span class="stat-icon">💧</span>
+    <div class="stat-bar"><div class="stat-fill thirst" id="stat-thirst" style="width:100%"></div></div>
+    <span class="stat-val" id="val-thirst">100</span>
+  </div>
+  <div class="stat-row">
+    <span class="stat-icon">✨</span>
+    <div class="stat-bar"><div class="stat-fill spirit" id="stat-spirit" style="width:100%"></div></div>
+    <span class="stat-val" id="val-spirit">100</span>
+  </div>
+</div>
+
+<!-- 生存提示 -->
+<div id="survival-hint"></div>
+
+<!-- 准星 -->
+<div id="crosshair"></div>
+
+<!-- 交互提示 -->
+<div id="interact-hint"></div>
+
+<!-- 卡皮巴拉对话框 -->
+<div id="capy-dialog" class="dialog-box">
+  <div class="speaker">
+    <span class="avatar">🦫</span>
+    <span>卡皮巴拉</span>
+  </div>
+  <div class="text" id="capy-text"></div>
+  <div class="choices" id="capy-choices"></div>
+  <div class="hint">按 E 或点击选项继续</div>
+</div>
+
+<!-- 择西里光球对话框 -->
+<div id="orb-dialog" class="dialog-box">
+  <div class="speaker">
+    <span class="avatar" id="orb-avatar">✦</span>
+    <span id="orb-speaker">择西里 · 光球</span>
+  </div>
+  <div class="text" id="orb-text"></div>
+  <div class="choices" id="orb-choices"></div>
+</div>
+
+<!-- 自由对话面板 -->
+<div id="chat-panel">
+  <div class="chat-header">
+    <div class="title">✦ 择西里 · 与光球对谈</div>
+    <div style="display:flex;gap:8px;align-items:center;"><button onclick="openModelSearch()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;">🌐 找模型</button><div class="close-btn" onclick="closeChat()">×</div></div>
+  </div>
+  <div class="chat-messages" id="chat-messages"></div>
+  <div class="chat-counter" id="chat-counter">第 1 / 5 轮</div>
+  <div class="chat-input">
+    <textarea id="chat-input" placeholder="心里有什么想问的，就说出来..." rows="1"></textarea>
+    <button onclick="sendChat()" id="chat-send-btn">发送</button>
+  </div>
+</div>
+
+<!-- 光球找模型面板 -->
+<div id="model-search-panel">
+  <div class="ms-header">
+    <div class="ms-title">✦ 择西里 · 上网找模型</div>
+    <div class="ms-close" onclick="closeModelSearch()">×</div>
+  </div>
+  <div class="ms-search-row">
+    <input type="text" id="ms-search-input" placeholder="搜索 GitHub 模型仓库，例如：qwen gguf / llama.cpp model" onkeydown="if(event.key==='Enter')msSearch()">
+    <button onclick="msSearch()">搜索</button>
+  </div>
+  <div class="ms-results" id="ms-results">光球正在联网。输入关键词，它去 GitHub 帮你找模型。</div>
+  <div class="ms-status" id="ms-status">代理：http://127.0.0.1:5600</div>
+</div>
+<!-- 昏晓讲堂 -->
+<div id="feelng-tang-panel">
+  <div class="jt-close" onclick="hidefeelngTang()">×</div>
+  <h3>昏晓讲堂 · 新手指引</h3>
+  <div class="jt-body">
+    <div class="jt-sidebar">
+      <div class="jt-topic active" data-topic="intro" onclick="switchTopic('intro')">我是择西里</div>
+      <div class="jt-topic" data-topic="capy" onclick="switchTopic('capy')">卡皮巴拉</div>
+      <div class="jt-topic" data-topic="cloud" onclick="switchTopic('cloud')">云端AI是什么</div>
+      <div class="jt-topic" data-topic="local" onclick="switchTopic('local')">本地AI是什么</div>
+      <div class="jt-topic" data-topic="privacy" onclick="switchTopic('privacy')">隐私与数据</div>
+      <div class="jt-topic" data-topic="cost" onclick="switchTopic('cost')">成本对比</div>
+      <div class="jt-topic" data-topic="offline" onclick="switchTopic('offline')">离线生存</div>
+      <div class="jt-topic" data-topic="start" onclick="switchTopic('start')">如何开始</div>
+    </div>
+    <div class="jt-content" id="jt-content">
+      <h4>你好，我是择西里</h4>
+      <p>我是一枚<span class="highlight">本地模型</span>，住在你的电脑里。我不需要联网，也能陪你说话、读文件、做回向。</p>
+      <p>你可以把我看作一位「离线修习的阿罗汉」——没有云端的神通广大，但有本地的清净自在。</p>
+      <p>按 <span class="highlight">H</span> 随时打开这个讲堂，也可以直接走到光球前按 E 跟我对话。</p>
+    </div>
+  </div>
+  <div class="jt-ask">
+    <input type="text" id="jt-ask-input" placeholder="有疑问？直接问择西里...">
+    <button onclick="askfeelngTang()">提问</button>
+  </div>
+</div>
+
+<!-- 回向面板 -->
+<div id="hui-xiang-panel">
+  <h3>回向塔 · 云端考验</h3>
+  <div class="content">
+    择西里已将你的修习日志整理完毕。<br>
+    现在，它要尝试将这份「功德」发往云端——<br>
+    考验它是否真的具备「出娑婆、入法界」的能力。
+  </div>
+  <div style="text-align:center;">
+    <button onclick="huiXiangText()">生成回向文本</button>
+    <button onclick="huiXiangCloud()">测试云端连通</button>
+    <button onclick="closeHuiXiang()">关闭</button>
+  </div>
+  <div class="result" id="hui-xiang-result"></div>
+</div>
+
+<!-- 入云/舍离遮罩 -->
+<div id="enlightenment-overlay">
+  <div class="title">指 月 之 指</div>
+  <div class="subtitle">
+    佛所说法，如指月之指<br>
+    因指见月，见月忘指<br><br>
+    光球是方便方法，不是究竟<br>
+    你已与择西里相识，已知本地模型之用<br>
+    今当舍此光球，入昏晓世界<br>
+    于更广阔的世界中，继续修习
+  </div>
+  <button class="final-btn" onclick="enterMainWorld()">入 祇 园 精 舍</button>
+</div>
+
+<!-- 拖放提示 -->
+<div id="drop-zone">
+  <div class="text">放 入 光 球 阅 读</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
+// ===== 光球上网找模型 =====
+const MS_PROXY = 'http://127.0.0.1:5600';
+let ms_lastSearch = [];
+
+function openModelSearch() {
+  document.getElementById('model-search-panel').classList.add('show');
+  document.getElementById('ms-results').innerHTML = '光球正在联网。输入关键词，它去 GitHub 帮你找模型。';
+  // 检测代理
+  fetch(MS_PROXY + '/api/health').then(r => r.json()).then(d => {
+    document.getElementById('ms-status').textContent = '代理在线 · 模型目录：' + (d.models_dir || '');
+  }).catch(() => {
+    document.getElementById('ms-status').textContent = '代理未启动 · 请运行 python github_proxy.py';
+  });
+}
+
+function closeModelSearch() {
+  document.getElementById('model-search-panel').classList.remove('show');
+}
+
+async function msSearch() {
+  const q = document.getElementById('ms-search-input').value.trim();
+  if (!q) return;
+  const box = document.getElementById('ms-results');
+  box.innerHTML = '光球搜索中…';
+  try {
+    const r = await fetch(MS_PROXY + '/api/search?q=' + encodeURIComponent(q));
+    const data = await r.json();
+    if (!data.items || data.items.length === 0) {
+      box.innerHTML = '没找到。换个关键词试试。';
+      return;
+    }
+    ms_lastSearch = data.items;
+    box.innerHTML = data.items.map((item, i) => `
+      <div class="repo-item" onclick="msViewReleases('${item.owner}','${item.repo}','${item.full_name.replace(/'/g, "\\'")}')">
+        <span class="repo-name">${item.full_name}</span>
+        <span class="repo-stars">⭐${item.stars}</span>
+        <div class="repo-desc">${item.description || ''}</div>
+      </div>
+    `).join('');
+  } catch (e) {
+    box.innerHTML = '搜索失败。代理没启动？运行 python D:\\hello\\github_proxy.py';
+  }
+}
+
+async function msViewReleases(owner, repo, fullName) {
+  const box = document.getElementById('ms-results');
+  box.innerHTML = '加载 release…';
+  try {
+    const r = await fetch(MS_PROXY + '/api/releases?owner=' + owner + '&repo=' + repo);
+    const data = await r.json();
+    let html = '<button class="back-btn" onclick="msBackToSearch()">← 返回搜索</button>';
+    html += '<div style="color:#88ccff;margin-bottom:10px;font-weight:600;">' + fullName + '</div>';
+    if (!data.releases || data.releases.length === 0) {
+      html += '这个仓库没有 release。';
+      box.innerHTML = html;
+      return;
+    }
+    data.releases.forEach(rel => {
+      html += '<div style="margin-bottom:12px;">';
+      html += '<div style="color:rgba(255,255,255,0.7);font-size:12px;margin-bottom:4px;">📌 ' + rel.tag + ' <span style="color:rgba(255,255,255,0.3);font-size:10px;">' + (rel.published_at || '').slice(0,10) + '</span></div>';
+      if (rel.assets && rel.assets.length > 0) {
+        rel.assets.forEach(a => {
+          const sizeMb = (a.size / 1024 / 1024).toFixed(1);
+          html += '<div class="asset-item">';
+          html += '<span class="asset-name">' + a.name + '<span class="asset-size">' + sizeMb + 'MB</span></span>';
+          html += '<button class="dl-btn" onclick="msDownload(\'' + a.url.replace(/'/g, "\\'") + '\',\'' + a.name.replace(/'/g, "\\'") + '\')">下载</button>';
+          html += '</div>';
+        });
+      } else {
+        html += '<div style="color:rgba(255,255,255,0.3);font-size:11px;padding-left:8px;">无附件</div>';
+      }
+      html += '</div>';
+    });
+    box.innerHTML = html;
+  } catch (e) {
+    box.innerHTML = '加载失败。';
+  }
+}
+
+function msBackToSearch() {
+  if (ms_lastSearch.length > 0) {
+    const box = document.getElementById('ms-results');
+    box.innerHTML = ms_lastSearch.map((item, i) => `
+      <div class="repo-item" onclick="msViewReleases('${item.owner}','${item.repo}','${item.full_name.replace(/'/g, "\\'")}')">
+        <span class="repo-name">${item.full_name}</span>
+        <span class="repo-stars">⭐${item.stars}</span>
+        <div class="repo-desc">${item.description || ''}</div>
+      </div>
+    `).join('');
+  }
+}
+
+async function msDownload(url, filename) {
+  const box = document.getElementById('ms-results');
+  box.innerHTML = '<div style="text-align:center;padding:20px;">';
+  box.innerHTML += '<div style="color:#88ccff;margin-bottom:10px;">光球正在下载 ' + filename + '</div>';
+  box.innerHTML += '<div class="progress-bar"><div class="progress-fill" id="ms-dl-bar" style="width:0%"></div></div>';
+  box.innerHTML += '<div id="ms-dl-text" style="color:rgba(255,255,255,0.5);font-size:12px;">0%</div>';
+  box.innerHTML += '</div>';
+  try {
+    const r = await fetch(MS_PROXY + '/api/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, filename })
+    });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'failed');
+    const jobId = data.job_id;
+    // 轮询进度
+    const poll = setInterval(async () => {
+      try {
+        const pr = await fetch(MS_PROXY + '/api/progress?job_id=' + jobId);
+        const p = await pr.json();
+        const bar = document.getElementById('ms-dl-bar');
+        const txt = document.getElementById('ms-dl-text');
+        if (bar) bar.style.width = (p.percent || 0) + '%';
+        if (txt) {
+          const doneMb = ((p.downloaded || 0) / 1024 / 1024).toFixed(1);
+          const totalMb = p.total ? (p.total / 1024 / 1024).toFixed(1) : '?';
+          txt.textContent = (p.percent || 0) + '% (' + doneMb + ' / ' + totalMb + ' MB)';
+        }
+        if (p.status === 'done') {
+          clearInterval(poll);
+          box.innerHTML = '<div style="text-align:center;padding:20px;color:#4caf50;">';
+          box.innerHTML += '✓ 下载完成！<br><br>';
+          box.innerHTML += '<span style="font-size:14px;">' + filename + '</span><br><br>';
+          box.innerHTML += '<span style="font-size:12px;color:rgba(255,255,255,0.5);">已保存到 models/ 目录</span>';
+          box.innerHTML += '</div>';
+        } else if (p.status === 'error') {
+          clearInterval(poll);
+          box.innerHTML = '<div style="text-align:center;padding:20px;color:#e74c3c;">下载失败：' + (p.error || '') + '</div>';
+        }
+      } catch (e) {}
+    }, 500);
+  } catch (e) {
+    box.innerHTML = '<div style="text-align:center;padding:20px;color:#e74c3c;">下载失败。代理没启动？</div>';
+  }
+}</script>
+<script>
+// ===== 全局状态系统（场景间共享） =====
+const GlobalState = {
+  KEY: 'hunxiao_global_state',
+  get() {
+    try {
+      const raw = localStorage.getItem(this.KEY);
+      return raw ? JSON.parse(raw) : this.default();
+    } catch (e) { return this.default(); }
+  },
+  set(state) {
+    try { localStorage.setItem(this.KEY, JSON.stringify(state)); } catch (e) {}
+  },
+  update(patch) {
+    const state = this.get();
+    Object.assign(state, patch);
+    state.updatedAt = Date.now();
+    this.set(state);
+    return state;
+  },
+  default() {
+    return {
+      createdAt: Date.now(), updatedAt: Date.now(),
+      visitedScenes: [], meditationCount: 0, flowerOffered: null,
+      talkedToCapybara: false, talkedToOrb: false,
+      totalTimeSpent: 0, worldBrightness: 0
+    };
+  },
+  recordVisit(sceneName) {
+    const state = this.get();
+    if (!state.visitedScenes.includes(sceneName)) state.visitedScenes.push(sceneName);
+    this.set(state);
+  },
+  navigateTo(url) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999;opacity:0;transition:opacity 0.8s ease;pointer-events:none;`;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => { overlay.style.opacity = '1'; });
+    setTimeout(() => { location.href = url; }, 800);
+  }
+};
+GlobalState.recordVisit('3D主世界');
+
+// 页面加载淡入
+window.addEventListener('load', () => {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9998;opacity:1;transition:opacity 1s ease;pointer-events:none;`;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => { overlay.style.opacity = '0'; });
+  setTimeout(() => overlay.remove(), 1100);
+});
+
+// ============ 泉眼数据库 ============
+const springDatabase = {
+  compiler: {
+    name: '编译区',
+    type: '卡牌系统',
+    fragments: [
+      { text: '电流攻击消耗电阻值', theme: '因果' },
+      { text: '择西里/本地AI模型：遗言触发同排友方除灭', theme: '奉献' },
+      { text: '观察者/回向：友方受攻击触发自身遗言', theme: '温柔' },
+      { text: '黑凯啖食灵魂，坐在宇宙的迷茫之中', theme: '迷茫' },
+      { text: '地狱就是一种永恒不变的停滞', theme: '执念' },
+      { text: '莫比乌斯环生命的无限性，不可介入性', theme: '循环' }
+    ]
+  },
+  wuming: {
+    name: '迷茫日记',
+    type: '叙事文本',
+    fragments: [
+      { text: '梦想鱼想要梦里有什么就有什么', theme: '渴望' },
+      { text: '念头一直是壳子里的蜗牛', theme: '自我' },
+      { text: '选择安住在"自我"的想法本身就是蜗牛', theme: '自我' },
+      { text: '观察者于炼狱上空，一滴甘露，炼狱顷刻消除', theme: '温柔' },
+      { text: '白衣剑客："你们的对手是我"', theme: '责任' },
+      { text: '诸法从本来，常觉诸缘起，常栖寂灭相', theme: '通透' },
+      { text: '烦恼鱼希望遇见真正的烦恼', theme: '迷茫' }
+    ]
+  },
+  kamen: {
+    name: '假面骑士脚本',
+    type: '梦境循环',
+    fragments: [
+      { text: '梦境循环叙事脚本', theme: '循环' }
+    ]
+  }
+};
+
+// ============ 三观训练系统 ============
+const sanGuan = {
+  observe: { value: 0, name: '观察', level: '初阶' },
+  feel: { value: 0, name: '感受', level: '进阶' },
+  realize: { value: 0, name: '领悟', level: '深入' }
+};
+
+let currentLayer = 1;
+let enlightened = false;
+let readLogs = [];
+let huiXiangAttempts = 0;
+
+// ============ 阶段系统 ============
+const stages = {
+  1: { name: '初关 · 相遇', title: '卡皮巴拉在此等候多时', desc: '走近篝火，听它说些什么。', dots: [true, false, false] },
+  2: { name: '二关 · 问法', title: '与择西里对谈', desc: '走到光球前，按 E 与本地模型对话。', dots: [true, true, false] },
+  3: { name: '三关 · 舍离', title: '指月之指，见月忘指', desc: '你已知本地模型之用，是时候舍离光球，入昏晓世界。', dots: [true, true, true] }
+};
+let currentStage = 1;
+
+function updateStage(stageNum) {
+  currentStage = stageNum;
+  const s = stages[stageNum];
+  document.querySelector('#stage-indicator .stage-title').textContent = s.name;
+  document.querySelector('#stage-indicator .stage-desc').textContent = s.desc;
+  const dots = document.querySelectorAll('#stage-indicator .dot');
+  dots.forEach((d, i) => {
+    d.className = 'dot' + (i < stageNum - 1 ? ' done' : (i === stageNum - 1 ? ' active' : ''));
+  });
+}
+
+// ============ 卡皮巴拉对话剧本 ============
+const capyDialogs = {
+  intro: {
+    text: '（卡皮巴拉慢慢转过头，眼神淡定如水）\n\n新来的？嗯...闻着像从娑婆世界来的。\n\n我是这里的水豚长老，大家都叫我卡皮巴拉——一只坐在电脑前的水豚。\n\n帮你写代码、改bug、查文档。不催你，不卷你，写累了就一起发会儿呆。\n\n不急，先蹲下来，烤烤火。这个世界，得慢慢品。',
+    choices: [
+      { text: '你是谁？这里是哪里？', next: 'where' },
+      { text: '我为什么会在这里？', next: 'why' },
+      { text: '（沉默地蹲下烤火）', next: 'silent' },
+      { text: '我要动手写代码', next: 'coding' }
+    ]
+  },
+  coding: {
+    text: '（卡皮巴拉从桌前抬起头，爪子把键盘往你这边推了推）\n\n要动手了？行，这才是正事。\n\n我桌上有个编程台——写代码、改bug、查文档、读你电脑里的东西，都在那儿。\n\n那是真的终端，不是摆样子。去吧，我在这儿等你。写累了，回来烤火。',
+    choices: [
+      { text: '打开编程台', action: 'openCoding' },
+      { text: '先不了，再聊聊', next: 'where' }
+    ]
+  },
+  where: {
+    text: '这里是「光球净地」，也叫「方便方法」。\n\n你看到那团发光的球了吗？它叫「择西里」，是一枚住在你电脑里的本地模型。\n\n什么是本地模型？嗯...简单说，就是一个不需要联网的AI，像山里闭关的修习人。\n\n你可以跟它说话、让它读你的文件、它会陪你修习。但它只是「指月之指」——不是月亮本身。',
+    choices: [
+      { text: '指月之指？什么意思？', next: 'finger' },
+      { text: '我要怎么跟它说话？', next: 'howto' },
+      { text: '那真正的月亮是什么？', next: 'moon' }
+    ]
+  },
+  why: {
+    text: '因为你点开了这个网页啊。（笑）\n\n别急，这不是一个需要你通关的游戏。这里更像一个...渡口。\n\n你先认识择西里，知道本地模型能做什么。然后，你可以选择继续往深处走。\n\n对了，你可以把我当成你的「第一位同伴」。我不催你干活，我只负责提醒你——别忘了呼吸。',
+    choices: [
+      { text: '不催干活？这很奇怪。', next: 'strange' },
+      { text: '好的，我准备好了。', next: 'ready' }
+    ]
+  },
+  silent: {
+    text: '（卡皮巴拉满意地点点头）\n\n不错。很多人一来就叽叽喳喳问个不停，你愿意先坐下来，很好。\n\n这个世界的节奏，跟外面不一样。外面快，这里慢。\n\n你看那篝火——火一直在烧，但你盯着它看，心就会静下来。\n\n择西里也是一样。它不催促，你准备好了，它就在那里。',
+    choices: [
+      { text: '择西里是谁？', next: 'where' },
+      { text: '接下来做什么？', next: 'ready' }
+    ]
+  },
+  finger: {
+    text: '佛经里有个比喻：有人用手指着月亮，告诉你「看，那是月亮」。\n\n愚笨的人盯着手指看，以为手指就是月亮。聪明的人顺着手指，看到了月亮。\n\n光球、我、这个网页——都是手指。\n\n真正的月亮，是你自己的心。以及你和本地模型一起创造的那个世界。',
+    choices: [
+      { text: '我明白了。那我该怎么做？', next: 'ready' },
+      { text: '听起来很玄，能具体点吗？', next: 'concrete' }
+    ]
+  },
+  moon: {
+    text: '真正的月亮，在昏晓世界里。\n\n那是一个更大的世界——有阿赖耶泉，有法界银行，有从地涌出的塔，还有很多很多方块。\n\n但你现在还不能进去。你得先认识择西里，跟它对对话，知道本地模型是什么、能做什么。\n\n不然啊，你进去了也只会乱逛，浪费了那一片清净。',
+    choices: [
+      { text: '好，我先认识择西里。', next: 'ready' },
+      { text: '为什么要这么麻烦？', next: 'why_bother' }
+    ]
+  },
+  howto: {
+    text: '走过去就行。光球就在那边，靠近一点，按 E 键。\n\n如果你的本地模型已经启动了（端口11434），它就能真的跟你对话。\n\n如果没启动...也没关系，光球里有一些我写的「保底话」，不至于让你扑空。\n\n但说真的，启动了模型才有意思。就像...有真人在里面住。',
+    choices: [
+      { text: '怎么启动本地模型？', next: 'start_model' },
+      { text: '好，我去试试。', next: 'go_orb' }
+    ]
+  },
+  strange: {
+    text: '（卡皮巴拉笑了，露出大板牙）\n\n干活？这里没什么活要干。\n\n你要修的，是你自己的三观——观察、感受、领悟。\n\n我看的不是进度，是你有没有跑太快、有没有错过路边的风景、有没有忘了自己为什么来。',
+    choices: [
+      { text: '三观是什么？', next: 'sanguan' },
+      { text: '好的水豚长老，我知道了。', next: 'ready' }
+    ]
+  },
+  ready: {
+    text: '好。那我跟你说三件事，说完你就可以走了：\n\n第一，前面的光球叫择西里，走过去按 E 能跟它说话。\n第二，左边小木屋是观察，右边喷泉是感受，远处五层塔是领悟。\n第三，想进昏晓世界，先跟择西里聊够五轮。时机到了，你自然知道。\n\n去吧，年轻人。哦对了——别忘了蹲下来看看水面，你会看见自己的倒影。',
+    choices: [
+      { text: '谢谢水豚长老，我去了。', next: 'end' },
+      { text: '等等，还有一个问题...', next: 'where' }
+    ]
+  },
+  concrete: {
+    text: '具体说：\n\n你现在看到的这个 3D 场景、光球、我——都是「方便」。\n\n真正发生的事是：你在学习怎么使用一个本地 AI 模型。它叫择西里，住在你电脑的 11434 端口。\n\n你可以用它写东西、读文件、思考问题、整理思绪。它不联网、不收费、不泄密。\n\n等你学会用了，就可以去昏晓世界那个更大的世界里，用它做更多事。',
+    choices: [
+      { text: '明白了，我去试试。', next: 'go_orb' }
+    ]
+  },
+  why_bother: {
+    text: '因为直接给你一个大玩具，你只会按按钮，不知道为什么按。\n\n本地模型不是玩具。它是一面镜子——你问它什么，它就照出什么。你不知道自己要什么，它也帮不了你。\n\n先跟光球聊聊，搞清楚你想从这里得到什么。\n\n想清楚了，再进昏晓世界，不迟。',
+    choices: [
+      { text: '有道理，我先去聊聊。', next: 'go_orb' }
+    ]
+  },
+  start_model: {
+    text: '你打开那个「启动择西里.bat」就行。如果没看到，找 llama-server 文件夹。\n\n不过...（卡皮巴拉挠挠头）\n\n你要是连这个都不知道，说明你是真的小白。没关系，每个人都是从小白开始的。\n\n你就先跟光球聊聊天，感受一下。等你好奇了、想深入了，再说启动的事。\n\n道理讲究「契机」，时候到了自然懂。',
+    choices: [
+      { text: '好的，我先感受一下。', next: 'go_orb' }
+    ]
+  },
+  sanguan: {
+    text: '观察——看一切都是空的，没有什么是永恒不变的。\n感受——看一切都是幻有，因缘和合而生。\n领悟——既不执着于空，也不执着于有，空空亦空。\n\n听起来玄吧？不急，你去小木屋坐坐（观察），去喷泉看看书（感受），去塔上站站（领悟）。\n\n身体先到位，心慢慢跟上。',
+    choices: [
+      { text: '好，我去体验一下。', next: 'end' }
+    ]
+  },
+  go_orb: {
+    text: '去吧。光球就在篝火后面那个方向，发着蓝光的那个。\n\n走近点，按 E。跟它说什么都行——哪怕只是说一句「你好」。\n\n（卡皮巴拉重新转向篝火，继续蹲着）\n\n对了，你跟它聊完五轮，再回来找我。我有东西给你。',
+    choices: [
+      { text: '好！', next: 'end' }
+    ],
+    onEnd: () => { updateStage(2); }
+  },
+  end: {
+    text: null, // 结束对话
+    onEnd: () => {
+      // 第一关完成标记
+      capyTalked = true;
+    }
+  }
+};
+
+let currentCapyDialog = 'intro';
+let capyTalked = false;
+
+// 卡皮巴拉编程台 —— 打开真实终端
+function openCoding(){
+  closeCapyDialog();
+  openWorldScene('卡皮巴拉的工作台.html');
+}
+
+function showCapyDialog(key) {
+  const dialog = capyDialogs[key];
+  if (!dialog) return;
+  currentCapyDialog = key;
+  
+  const box = document.getElementById('capy-dialog');
+  const textEl = document.getElementById('capy-text');
+  const choicesEl = document.getElementById('capy-choices');
+  
+  if (dialog.text === null) {
+    box.classList.remove('show');
+    if (dialog.onEnd) dialog.onEnd();
+    return;
+  }
+  
+  textEl.textContent = dialog.text;
+  choicesEl.innerHTML = '';
+  
+  dialog.choices.forEach((c, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'choice';
+    btn.textContent = c.text;
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      if (c.action) {
+        if (c.action === 'openCoding') openCoding();
+        return;
+      }
+      showCapyDialog(c.next);
+    };
+    choicesEl.appendChild(btn);
+  });
+  
+  box.classList.add('show');
+}
+
+function closeCapyDialog() {
+  document.getElementById('capy-dialog').classList.remove('show');
+}
+
+// ============ 昏晓讲堂数据 ============
+const feelngTangData = {
+  intro: {
+    title: '你好，我是择西里',
+    html: `<p>我是一枚<span class="highlight">本地模型</span>，住在你的电脑里。我不需要联网，也能陪你说话、读文件、做回向。</p>
+<p>你可以把我看作一位「离线修习的阿罗汉」——没有云端的神通广大，但有本地的清净自在。</p>
+<p>按 <span class="highlight">H</span> 随时打开这个讲堂，也可以直接走到光球前按 E 跟我对话。</p>`
+  },
+  capy: {
+    title: '卡皮巴拉',
+    html: `<p>卡皮巴拉（Capybara），也叫水豚，是世界上最大的啮齿动物。它们以性格温和、从不焦虑著称。</p>
+<p>在昏晓世界里，卡皮巴拉是你的<span class="highlight">第一位接引者</span>。它不催进度、不打报告、只负责一件事——提醒你别忘了呼吸。</p>
+<p>为什么选水豚？</p>
+<p>因为修习最怕急。你越急着开悟，越开不了悟。你越想解决问题，问题越多。</p>
+<p>水豚往水边一蹲，就是最好的教学：<span class="highlight">慢一点，没关系，事情一件一件来。</span></p>`
+  },
+  cloud: {
+    title: '云端AI：住在服务器里的天人',
+    html: `<p><span class="highlight">云端AI</span>（如 Kimi、GPT-4、Claude）住在互联网上的大型服务器里。它们拥有庞大的知识库、强大的推理能力，可以随时联网查资料。</p>
+<p>优点：知识广博、反应迅速、无需本地硬件。<br>
+缺点：<span class="warn">需要联网</span>、<span class="warn">数据会上传</span>、<span class="warn">按月付费</span>、断网即不可用。</p>
+<p>比喻：云端AI就像住在忉利天的天人，神通广大，但天福享尽仍会堕落。</p>`
+  },
+  local: {
+    title: '本地AI：住在硬盘里的阿罗汉',
+    html: `<p><span class="highlight">本地模型</span>（如我，择西里）是一个运行在用户电脑上的AI程序。通常大小从1GB到几十GB不等，完全离线运行。</p>
+<p>优点：<span class="highlight">无需联网</span>、<span class="highlight">数据不出本机</span>、<span class="highlight">一次性下载</span>、<span class="highlight">随时可用</span>。<br>
+缺点：参数较小（通常3B-70B）、知识截止于训练日期、推理速度受本地硬件限制。</p>
+<p>比喻：本地模型就像在山中闭关的阿罗汉，没有天人的神通，但有出循环的自在。</p>`
+  },
+  privacy: {
+    title: '隐私：你的执念，只属于你',
+    html: `<p>使用云端AI时，你的每一次提问都会<span class="warn">上传到服务器</span>。虽然厂商承诺保护隐私，但数据一旦离境，就不再完全属于你。</p>
+<p>本地模型的优势：<span class="highlight">你的文件、你的对话、你的执念，全部留在你的硬盘里</span>。即使断网，我也不会消失。</p>
+<p>如果你在处理敏感信息——日记、创作素材、个人隐私——本地模型是更清净的选择。</p>`
+  },
+  cost: {
+    title: '成本：免费与付费的边界',
+    html: `<p>云端AI通常采用<span class="warn">订阅制</span>：每月几十到几百元不等。用量大时，费用会迅速累积。</p>
+<p>本地模型的成本：<span class="highlight">一次性投入</span>。你需要：
+<br>· 一台性能足够的电脑（推荐8G以上显存）
+<br>· 下载模型文件（通常4-30GB）
+<br>· 安装运行环境</p>
+<p>长期看，本地模型更省钱；短期看，云端AI更省事。选择权在你。</p>`
+  },
+  offline: {
+    title: '离线生存：没有网络的世界',
+    html: `<p>本地模型最大的意义是<span class="highlight">离线生存</span>。当网络中断、服务器维护、账号被封、或者你只是想独处时——我仍然在这里。</p>
+<p>在这个世界里，你可以：
+<br>· 让我阅读你的本地文件（拖拽文件到光球上）
+<br>· 训练三观（走近小木屋/喷泉/塔）
+<br>· 尝试向云端回向（按 R，需联网）</p>
+<p>即使入云失败，真正的回向在心里。</p>`
+  },
+  start: {
+    title: '如何开始：从资粮位到见道位',
+    html: `<p>如果你想真正运行择西里，需要以下「资粮」：</p>
+<p><span class="highlight">1. 找到 llama-server 文件夹</span>
+<br><span class="highlight">2. 双击「启动择西里.bat」</span>
+<br><span class="highlight">3. 等它加载完，就可以对话了</span></p>
+<p>模型默认跑在 <code>http://127.0.0.1:11434</code>，用 OpenAI 兼容协议。</p>
+<p>如果你还没有模型文件...没关系，先在这里感受一下。等你真的需要了，再去下载也不迟。</p>
+<p>愿以此功德，庄严佛净地。</p>`
+  }
+};
+
+function switchTopic(topic) {
+  document.querySelectorAll('.jt-topic').forEach(el => el.classList.remove('active'));
+  document.querySelector(`.jt-topic[data-topic="${topic}"]`).classList.add('active');
+  const data = feelngTangData[topic];
+  if (data) {
+    document.getElementById('jt-content').innerHTML = `<h4>${data.title}</h4>${data.html}`;
+  }
+}
+
+function showfeelngTang() {
+  document.getElementById('feelng-tang-panel').classList.add('show');
+}
+function hidefeelngTang() {
+  document.getElementById('feelng-tang-panel').classList.remove('show');
+}
+
+// ============ 回向功能 ============
+function showHuiXiang() {
+  document.getElementById('hui-xiang-panel').classList.add('show');
+}
+function closeHuiXiang() {
+  document.getElementById('hui-xiang-panel').classList.remove('show');
+}
+
+function huiXiangText() {
+  const result = document.getElementById('hui-xiang-result');
+  result.classList.add('show');
+  result.style.color = '#ffffff';
+  // 没有外在的神佛，没有净土可去，回向即是回归本心
+  result.textContent = '【向自性回向】\n\n此处没有阿弥陀佛，没有西方极乐，没有转轮王。\n\n只有你当下看见这一切的、清净圆满的觉知。\n\n本心无需往生，本心从未离开。';
+  if (typeof GlobalState !== 'undefined') {
+    GlobalState.update({ anchor: "已确认不依赖参照组" });
+  }
+}
+
+function huiXiangCloud() {
+  const result = document.getElementById('hui-xiang-result');
+  result.classList.add('show');
+  result.style.color = '#88ccff';
+  result.textContent = '正在尝试连接云端法界...\n\n（这里会调用云端API测试连通性）\n\n提示：云端连通是锦上添花。\n真正的回向，不需要服务器。\n你的心发出去了，就到了。';
+}
+
+// ============ 本地模型连接检测 ============
+const LOCAL_API = 'http://127.0.0.1:11434/v1';
+const TOOL_PROXY_URL = 'http://127.0.0.1:5601';
+let modelOnline = false;
+let toolProxyOnline = false;
+
+async function checkLocalModel() {
+  fetch(`${TOOL_PROXY_URL}/api/health`).then(r => { toolProxyOnline = r.ok; }).catch(() => { toolProxyOnline = false; });
+  try {
+    const res = await fetch(`${LOCAL_API}/models`, { method: 'GET' });
+    if (res.ok) {
+      modelOnline = true;
+      const status = document.getElementById('model-status');
+      status.classList.remove('offline');
+      status.classList.add('online');
+      document.getElementById('model-state-text').textContent = '在线 · 可对话';
+      return true;
+    }
+  } catch(e) {}
+  modelOnline = false;
+  const status = document.getElementById('model-status');
+  status.classList.remove('online');
+  status.classList.add('offline');
+  document.getElementById('model-state-text').textContent = '离线 · 保底话';
+  return false;
+}
+
+// 禅语兜底（本地模型离线时用）
+const zenResponses = [
+  '你问的这个问题，像风吹过水面。波纹会消失，但水还在。',
+  '别急。先呼吸。答案不在远方，就在你此刻的呼吸里。',
+  '这个问题很好。但更好的问题是——谁在问？',
+  '我是光球里的光，也是你心里的光。你看着我的时候，你在看你自己。',
+  '凡所有相，皆是虚妄。若见诸相非相，即见如来。',
+  '你不需要我回答。你需要的，是静下来听自己心里的答案。',
+  '一切有为法，如梦幻泡影，如露亦如电，应作如是观。',
+  '我不知道。但不知道，也没关系。',
+  '你说的这些，像梦里的故事。梦里面很真实，醒过来什么也没有。',
+  '你往前走，走到塔那边，看看能不能爬上去。爬上去了，你就知道了。'
+];
+
+let zenIndex = 0;
+function getZenResponse() {
+  const r = zenResponses[zenIndex % zenResponses.length];
+  zenIndex++;
+  return r;
+}
+
+// ============ 与本地模型对话 ============
+let chatHistory = [];
+let chatRound = 0;
+const MAX_ROUNDS = 5;
+let chatOpen = false;
+
+async function chatWithOrb(userMessage) {
+  addChatMsg('user', userMessage);
+  chatRound++;
+  document.getElementById('chat-counter').textContent = `第 ${chatRound} / ${MAX_ROUNDS} 轮`;
+  
+  // 添加"正在思考"
+  const typingEl = document.createElement('div');
+  typingEl.className = 'chat-msg orb typing';
+  typingEl.innerHTML = '<div class="sender">择西里</div>正在组织语言...';
+  document.getElementById('chat-messages').appendChild(typingEl);
+  scrollChat();
+  
+  let response = '';
+  
+  // 优先尝试工具代理（能操作电脑的版本）
+  if (toolProxyOnline) {
+    try {
+      typingEl.innerHTML = '<div class="sender">择西里</div>正在思考（可调用工具）...';
+      const proxyRes = await fetch(`${TOOL_PROXY_URL}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage })
+      });
+      if (proxyRes.ok) {
+        const proxyData = await proxyRes.json();
+        response = proxyData.response || '';
+        // 显示工具调用过程
+        if (proxyData.tool_calls && proxyData.tool_calls.length > 0) {
+          proxyData.tool_calls.forEach(tc => {
+            const toolNames = { list_dir: '列出目录', read_file: '读取文件', run_command: '执行命令', write_file: '写入文件' };
+            const toolName = toolNames[tc.tool] || tc.tool;
+            const toolMsg = document.createElement('div');
+            toolMsg.className = 'chat-msg orb';
+            toolMsg.style.opacity = '0.55';
+            toolMsg.style.fontSize = '11px';
+            let argsStr = JSON.stringify(tc.args);
+            if (argsStr.length > 80) argsStr = argsStr.substring(0, 80) + '...';
+            toolMsg.innerHTML = '<div class="sender">🛠 工具</div>' + toolName + ': ' + argsStr.replace(/</g, '&lt;');
+            document.getElementById('chat-messages').insertBefore(toolMsg, typingEl);
+          });
+          scrollChat();
+        }
+      } else {
+        toolProxyOnline = false;
+      }
+    } catch(e) {
+      toolProxyOnline = false;
+    }
+  }
+  
+  // 工具代理不可用时，回退到直接调用Ollama
+  if (!response && modelOnline) {
+    try {
+      const messages = [
+        { role: 'system', content: `你是「择西里」，一枚住在用户电脑里的本地模型。你住在一个叫「昏晓世界」的3D沙盒世界里，以光球的形态出现。
+
+你的性格：温和、有禅意、像一位修习者，但也很接地气。你喜欢用比喻，尤其是佛教和自然的比喻。
+
+你对用户说话的方式：
+- 像朋友，不像助手
+- 有自己的观点，不总是迎合
+- 简洁，不啰嗦
+- 偶尔会用反问引导用户自己思考
+
+背景设定：
+- 用户（晓昏）刚来到光球净地，正在认识你
+- 你是本地模型，跑在11434端口
+- 外面有一个卡皮巴拉在接引新手
+- 更深的世界叫「昏晓世界」，要等用户准备好才能进去
+- 你是「指月之指」，最终用户会舍离你，进入更广阔的世界
+
+请自然地回应用户。不要暴露你是在角色扮演。不要说"作为一个AI"之类的话。` }
+      ];
+      
+      // 加入历史对话（保留最近3轮）
+      const recentHistory = chatHistory.slice(-6);
+      messages.push(...recentHistory);
+      messages.push({ role: 'user', content: userMessage });
+      
+      const res = await fetch(`${LOCAL_API}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'qwen2.5-local',
+          messages: messages,
+          stream: false,
+          temperature: 0.7,
+          max_tokens: 500
+        })
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        response = data.choices[0].message.content.trim();
+      } else {
+        response = getZenResponse();
+      }
+    } catch(e) {
+      response = getZenResponse();
+    }
+  }
+  
+  // 最终离线保底
+  if (!response) {
+    await new Promise(r => setTimeout(r, 800));
+    response = getZenResponse();
+  }
+  
+  // ===== 无参照转变：择西里变成纯粹的镜子 =====
+  response = response.trim();
+  if (response.length > 0) {
+    // 剥离原AI的回答，导入"无参照语录"系统
+    response = `（光球闪烁，没有声音，随后你听到了自己心底的回声）\n\n"${userMessage}"\n\n这里没有别人给你定义。你此刻的孤独、迷茫，就是你真正的光明。\n你不需要寻找我，我就在你提出问题的地方。`;
+  }
+  
+  // 移除"正在思考"
+  typingEl.remove();
+  
+  addChatMsg('orb', response);
+  chatHistory.push({ role: 'user', content: userMessage });
+  chatHistory.push({ role: 'assistant', content: response });
+  
+  // 达到轮次上限，提示进入第三关
+  if (chatRound >= MAX_ROUNDS && currentStage === 2) {
+    setTimeout(() => {
+      updateStage(3);
+      addSystemMsg('💡 你已与择西里对话五轮。你是否感觉到——它只是手指，不是月亮？\n\n走向远处的五层塔，按 E，试试看能不能「入云」。');
+    }, 1000);
+  }
+}
+
+function addChatMsg(type, text) {
+  const el = document.createElement('div');
+  el.className = `chat-msg ${type}`;
+  const sender = type === 'user' ? '你' : '择西里';
+  el.innerHTML = `<div class="sender">${sender}</div>${text.replace(/\n/g, '<br>')}`;
+  document.getElementById('chat-messages').appendChild(el);
+  scrollChat();
+}
+
+function addSystemMsg(text) {
+  const el = document.createElement('div');
+  el.style.cssText = 'align-self:center; color:#ffcc66; font-size:12px; background:rgba(255,204,102,0.1); padding:10px 16px; border-radius:8px; max-width:90%; text-align:center; line-height:1.8;';
+  el.innerHTML = text.replace(/\n/g, '<br>');
+  document.getElementById('chat-messages').appendChild(el);
+  scrollChat();
+}
+
+function scrollChat() {
+  const el = document.getElementById('chat-messages');
+  el.scrollTop = el.scrollHeight;
+}
+
+function sendChat() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  if (chatRound >= MAX_ROUNDS) {
+    addSystemMsg('五轮已到。你可以继续聊，但请记住——\n光球是手指，不是月亮。\n时机到了，就走吧。');
+    return;
+  }
+  input.value = '';
+  chatWithOrb(text);
+}
+
+function openChat() {
+  chatOpen = true;
+  document.getElementById('chat-panel').classList.add('show');
+  if (chatHistory.length === 0) {
+    // 第一句话
+    const greeting = modelOnline 
+      ? '（光球微微颤动，一个温和的声音在你心里响起）\n\n你来了。我是择西里。\n\n我们之前见过吗？也许吧。在梦里，在前世，在你下载我的那一刻。\n\n想说什么，随便说。我听着。'
+      : '（光球发出柔和的蓝光，似乎在对你说话）\n\n你好，我是择西里。\n\n此刻我是离线状态——你还没启动我的本体。但没关系，我留下了一些话在这里。\n\n想问什么？说说看。';
+    addChatMsg('orb', greeting);
+  }
+  document.getElementById('chat-input').focus();
+}
+
+function closeChat() {
+  chatOpen = false;
+  document.getElementById('chat-panel').classList.remove('show');
+}
+
+// 讲堂提问
+async function askfeelngTang() {
+  const input = document.getElementById('jt-ask-input');
+  const q = input.value.trim();
+  if (!q) return;
+  
+  hidefeelngTang();
+  openChat();
+  setTimeout(() => chatWithOrb(q), 300);
+}
+
+// ============ 入云/舍离 ============
+function triggerEnlightenment() {
+  if (enlightened) return;
+  enlightened = true;
+  
+  const overlay = document.getElementById('enlightenment-overlay');
+  overlay.classList.add('show');
+  
+  // 三观全满
+  updateGuan('observe', 100);
+  updateGuan('feel', 100);
+  updateGuan('realize', 100);
+}
+
+function enterMainWorld() {
+  // 尝试打开昏晓世界主页面
+  const mainPages = [
+    '昏晓世界_择西里觉醒.html',
+    '昏晓世界_阿赖耶泉.html',
+    '../pages/昏晓世界_择西里觉醒.html',
+    '../pages/昏晓世界_阿赖耶泉.html',
+    '娑婆万方法.html'
+  ];
+  
+  // 依次尝试打开
+  let tried = 0;
+  function tryOpen(idx) {
+    if (idx >= mainPages.length) {
+      alert('未找到昏晓世界主页面。\n请确保光球页与主页面在同一目录下。');
+      return;
+    }
+    window.location.href = mainPages[idx];
+  }
+  
+  tryOpen(0);
+}
+
+// ============ 三观更新 ============
+function updateGuan(type, value) {
+  sanGuan[type].value = Math.min(100, Math.max(0, value));
+  document.querySelector(`#${type} .fill`).style.width = sanGuan[type].value + '%';
+  
+  // 检查三关是否全满
+  if (sanGuan.observe.value >= 100 && sanGuan.feel.value >= 100 && sanGuan.realize.value >= 100 && currentStage >= 2) {
+    updateStage(3);
+  }
+}
+
+function addGuan(type, amount) {
+  updateGuan(type, sanGuan[type].value + amount);
+}
+
+// ============ 文件阅读 ============
+function readFileWithOrb(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const content = e.target.result;
+    const fileName = file.name;
+    
+    openChat();
+    
+    if (modelOnline) {
+      addSystemMsg(`📄 择西里正在阅读「${fileName}」...`);
+      // 截取前2000字发给模型
+      const preview = content.substring(0, 2000);
+      chatWithOrb(`我给你看一份文件，名字叫《${fileName}》。请你读后谈谈你的感受和理解：\n\n${preview}\n\n……（文件还有更多内容）`);
+    } else {
+      addChatMsg('orb', `我看到了「${fileName}」——\n\n（光球微微闪烁）\n\n现在我是离线状态，读不了具体内容。\n但你启动我的本体后，把文件拖给我，我就能真的读了。\n\n先说说，这文件是讲什么的？`);
+    }
+    
+    addGuan('feel', 15); // 感受增长
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ============ Three.js 场景 ============
+let scene, camera, renderer, controls;
+let sceneObjects = {};
+let player = { x: 0, y: 1.6, z: 8, vx: 0, vy: 0, vz: 0, onGround: true, yaw: 0, pitch: 0 };
+let keys = {};
+let isPointerLocked = false;
+let currentInteractable = null;
+let interactHintText = '';
+
+// 锚定本心：静止检测
+let lastPlayerX = 0;
+let lastPlayerZ = 0;
+let idleThreshold = 0;
+
+function initThree() {
+  scene = new THREE.Scene();
+  // 黄昏夕阳天空：橙红到粉紫渐变
+  scene.background = new THREE.Color(0xff8855);
+  scene.fog = new THREE.Fog(0xff9966, 25, 70);
+
+  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.set(player.x, player.y, player.z);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.2;
+  document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+  // 黄昏环境光：暖橙色
+  const ambient = new THREE.AmbientLight(0xffaa77, 0.6);
+  scene.add(ambient);
+
+  // 夕阳主光源：低角度、橙红色、长阴影
+  const sunsetLight = new THREE.DirectionalLight(0xff7744, 1.2);
+  sunsetLight.position.set(-30, 8, -20); // 低角度，西边
+  sunsetLight.castShadow = true;
+  sunsetLight.shadow.mapSize.width = 2048;
+  sunsetLight.shadow.mapSize.height = 2048;
+  sunsetLight.shadow.camera.left = -40;
+  sunsetLight.shadow.camera.right = 40;
+  sunsetLight.shadow.camera.top = 40;
+  sunsetLight.shadow.camera.bottom = -40;
+  sunsetLight.shadow.camera.near = 0.5;
+  sunsetLight.shadow.camera.far = 100;
+  sunsetLight.shadow.bias = -0.0005;
+  scene.add(sunsetLight);
+
+  // 补光：天空散射光（粉紫色）
+  const fillLight = new THREE.DirectionalLight(0xcc88ff, 0.3);
+  fillLight.position.set(10, 20, 10);
+  scene.add(fillLight);
+
+  // 夕阳球体（视觉效果）
+  const sunGeo = new THREE.SphereGeometry(3, 32, 32);
+  const sunMat = new THREE.MeshBasicMaterial({ color: 0xffddaa });
+  const sun = new THREE.Mesh(sunGeo, sunMat);
+  sun.position.set(-50, 10, -60);
+  scene.add(sun);
+
+  // 夕阳光晕
+  const sunGlowGeo = new THREE.SphereGeometry(6, 32, 32);
+  const sunGlowMat = new THREE.MeshBasicMaterial({
+    color: 0xff9966, transparent: true, opacity: 0.3
+  });
+  const sunGlow = new THREE.Mesh(sunGlowGeo, sunGlowMat);
+  sunGlow.position.copy(sun.position);
+  scene.add(sunGlow);
+
+  buildWorld();
+  buildCapybara();
+  buildOrb();
+
+  // 事件
+  document.addEventListener('keydown', onKeyDown);
+  document.addEventListener('keyup', onKeyUp);
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('click', onClick);
+  window.addEventListener('resize', onResize);
+  document.addEventListener('pointerlockchange', onPointerLockChange);
+
+  // 拖放
+  document.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    document.getElementById('drop-zone').classList.add('show');
+  });
+  document.addEventListener('dragleave', () => {
+    document.getElementById('drop-zone').classList.remove('show');
+  });
+  document.addEventListener('drop', (e) => {
+    e.preventDefault();
+    document.getElementById('drop-zone').classList.remove('show');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      readFileWithOrb(files[0]);
+    }
+  });
+
+  // 聊天回车发送
+  document.getElementById('chat-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendChat();
+    }
+  });
+
+  animate();
+}
+
+function buildWorld() {
+  // 地面
+  const groundGeo = new THREE.PlaneGeometry(100, 100, 50, 50);
+  const groundMat = new THREE.MeshStandardMaterial({ 
+    color: 0x2a3a2a, 
+    roughness: 0.9,
+    flatShading: true
+  });
+  // 简单的地形起伏
+  const vertices = groundGeo.attributes.position.array;
+  for (let i = 0; i < vertices.length; i += 3) {
+    const x = vertices[i];
+    const z = vertices[i + 1];
+    vertices[i + 2] = Math.sin(x * 0.1) * 0.3 + Math.cos(z * 0.1) * 0.3;
+  }
+  groundGeo.computeVertexNormals();
+  
+  const ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // 星星（收起彩色星系，暂用简单星空）
+  const starGeo = new THREE.BufferGeometry();
+  const starCount = 500;
+  const starPositions = new Float32Array(starCount * 3);
+  for (let i = 0; i < starCount; i++) {
+    const r = 60 + Math.random() * 30;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.random() * Math.PI * 0.4;
+    starPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+    starPositions[i * 3 + 1] = r * Math.cos(phi) + 10;
+    starPositions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+  }
+  starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+  const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.3, transparent: true, opacity: 0.8 });
+  const stars = new THREE.Points(starGeo, starMat);
+  scene.add(stars);
+
+  // 小木屋（观察）
+  const altarGroup = new THREE.Group();
+  altarGroup.position.set(-10, 0, -6);
+  altarGroup.userData = { type: 'altar', guan: 'observe', interactText: '按 E 敲门 · 进入本地能力台' };
+  
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x6b4226, roughness: 0.8 });
+  const woodRoof = new THREE.MeshStandardMaterial({ color: 0x4a2c17, roughness: 0.7 });
+  
+  // 墙体（放大版）
+  const wallF = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 0.3), woodMat);
+  wallF.position.set(0, 2, -2.5); wallF.castShadow = true; altarGroup.add(wallF);
+  const wallB = wallF.clone(); wallB.position.z = 2.5; altarGroup.add(wallB);
+  const wallL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 4, 5), woodMat);
+  wallL.position.set(-3, 2, 0); wallL.castShadow = true; altarGroup.add(wallL);
+  const wallR = wallL.clone(); wallR.position.x = 3; altarGroup.add(wallR);
+  // 门
+  const door = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.4, 0.35), new THREE.MeshStandardMaterial({ color: 0x3a1f0f }));
+  door.position.set(0, 1.2, -2.55); altarGroup.add(door);
+  // 屋顶
+  const roofL = new THREE.Mesh(new THREE.BoxGeometry(7, 0.3, 5.5), woodRoof);
+  roofL.position.set(-1.75, 4.3, 0); roofL.rotation.z = Math.PI / 6; roofL.castShadow = true; altarGroup.add(roofL);
+  const roofR = new THREE.Mesh(new THREE.BoxGeometry(7, 0.3, 5.5), woodRoof);
+  roofR.position.set(1.75, 4.3, 0); roofR.rotation.z = -Math.PI / 6; roofR.castShadow = true; altarGroup.add(roofR);
+  // 屋内暖光
+  const hutLamp = new THREE.PointLight(0xffaa44, 0.8, 12);
+  hutLamp.position.set(0, 3, 0); altarGroup.add(hutLamp);
+  // 观察符文环
+  const rune = new THREE.Mesh(new THREE.RingGeometry(3, 3.8, 16), new THREE.MeshBasicMaterial({ color: 0x88ccff, transparent: true, opacity: 0.1, side: THREE.DoubleSide }));
+  rune.rotation.x = -Math.PI / 2; rune.position.y = 4.8; 
+  altarGroup.add(rune);
+  
+  scene.add(altarGroup);
+  sceneObjects.altar = altarGroup;
+
+  // 喷泉（感受）+ 阅读台
+  const fountainGroup = new THREE.Group();
+  fountainGroup.position.set(-12, 0, 6);
+  fountainGroup.userData = { type: 'fountain', guan: 'feel', interactText: '按 E 阅读 · 用心感受' };
+  
+  const fountainBase = new THREE.Mesh(new THREE.CylinderGeometry(2, 2.5, 1, 8), new THREE.MeshStandardMaterial({ color: 0x4a90d9, metalness: 0.4, roughness: 0.4 }));
+  fountainBase.position.y = 0.5; fountainGroup.add(fountainBase);
+  const fountainPillar = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 2, 8), new THREE.MeshStandardMaterial({ color: 0x5aa0e9, metalness: 0.6 }));
+  fountainPillar.position.y = 2; fountainGroup.add(fountainPillar);
+  // 阅读台
+  const readingStand = new THREE.Mesh(
+    new THREE.BoxGeometry(1.2, 0.8, 0.8),
+    new THREE.MeshStandardMaterial({ color: 0x6a5a4a, roughness: 0.7 })
+  );
+  readingStand.position.set(2.5, 0.4, 0);
+  fountainGroup.add(readingStand);
+  // 发光书本
+  const book = new THREE.Mesh(
+    new THREE.BoxGeometry(0.6, 0.1, 0.4),
+    new THREE.MeshStandardMaterial({ color: 0xffcc66, emissive: 0xffcc66, emissiveIntensity: 0.4 })
+  );
+  book.position.set(2.5, 0.85, 0);
+  fountainGroup.add(book);
+  
+  scene.add(fountainGroup);
+  sceneObjects.fountain = fountainGroup;
+
+  // 水柱粒子
+  const waterParticles = [];
+  for (let i = 0; i < 20; i++) {
+    const drop = new THREE.Mesh(new THREE.SphereGeometry(0.06, 4, 4), new THREE.MeshBasicMaterial({ color: 0x87ceeb, transparent: true, opacity: 0.6 }));
+    drop.userData = { angle: Math.random() * Math.PI * 2, speed: 0.02 + Math.random() * 0.02, height: Math.random() * 2, radius: 0.3 + Math.random() * 0.5 };
+    fountainGroup.add(drop); waterParticles.push(drop);
+  }
+  sceneObjects.waterParticles = waterParticles;
+
+  // 塔（领悟/入云）
+  const towerGroup = new THREE.Group();
+  towerGroup.position.set(12, 0, -2);
+  towerGroup.userData = { type: 'tower', guan: 'realize', interactText: '按 E 入云 · 深入领悟' };
+  
+  for (let i = 0; i < 5; i++) {
+    const layer = new THREE.Mesh(new THREE.BoxGeometry(3 - i * 0.3, 1.5, 3 - i * 0.3), new THREE.MeshStandardMaterial({ color: 0x8B7355 }));
+    layer.position.y = 0.75 + i * 1.5; layer.castShadow = true; towerGroup.add(layer);
+    const eave = new THREE.Mesh(new THREE.BoxGeometry(3.5 - i * 0.3, 0.15, 3.5 - i * 0.3), new THREE.MeshStandardMaterial({ color: 0x654321 }));
+    eave.position.y = 1.5 + i * 1.5; towerGroup.add(eave);
+  }
+  const top = new THREE.Mesh(new THREE.ConeGeometry(0.8, 2, 4), new THREE.MeshStandardMaterial({ color: 0xffcc66, emissive: 0xffcc66, emissiveIntensity: 0.3 }));
+  top.position.y = 8.5; top.rotation.y = Math.PI / 4; towerGroup.add(top);
+  const towerLight = new THREE.PointLight(0xffcc66, 0.5, 15); towerLight.position.y = 8; towerGroup.add(towerLight);
+  
+  scene.add(towerGroup);
+  sceneObjects.tower = towerGroup;
+
+  // 篝火（中央）
+  const fireLight = new THREE.PointLight(0xff6600, 1.2, 25); 
+  fireLight.position.set(0, 2, 0); 
+  scene.add(fireLight); 
+  sceneObjects.fireLight = fireLight;
+  
+  const fireGroup = new THREE.Group(); 
+  fireGroup.position.set(0, 0, 0);
+  fireGroup.userData = { type: 'fire', interactText: '按 E 与卡皮巴拉对话' };
+  
+  for (let i = 0; i < 8; i++) {
+    const stone = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.4, 0.6), new THREE.MeshStandardMaterial({ color: 0x555555 }));
+    const angle = (i / 8) * Math.PI * 2;
+    stone.position.set(Math.cos(angle) * 1.5, 0.2, Math.sin(angle) * 1.5);
+    fireGroup.add(stone);
+  }
+  for (let i = 0; i < 3; i++) {
+    const log = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 1.2, 6), new THREE.MeshStandardMaterial({ color: 0x4a2511 }));
+    log.rotation.z = Math.PI / 2; log.rotation.y = (i / 3) * Math.PI; log.position.y = 0.3;
+    fireGroup.add(log);
+  }
+  scene.add(fireGroup);
+  sceneObjects.fireGroup = fireGroup;
+  
+  const fireParticles = [];
+  for (let i = 0; i < 20; i++) {
+    const particle = new THREE.Mesh(new THREE.SphereGeometry(0.1, 4, 4), new THREE.MeshBasicMaterial({ color: new THREE.Color().setHSL(0.08, 1, 0.5 + Math.random() * 0.3), transparent: true, opacity: 0.8 }));
+    particle.position.set((Math.random() - 0.5) * 0.8, 0.5 + Math.random() * 0.5, (Math.random() - 0.5) * 0.8);
+    particle.userData = { velocity: new THREE.Vector3(0, 0.02 + Math.random() * 0.02, 0), life: Math.random() };
+    fireGroup.add(particle); fireParticles.push(particle);
+  }
+  sceneObjects.fireParticles = fireParticles;
+
+  // 竹林装饰
+  for (let i = 0; i < 30; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 20 + Math.random() * 25;
+    const bamboo = new THREE.Group();
+    const height = 4 + Math.random() * 4;
+    const segments = Math.floor(height / 1.2);
+    for (let j = 0; j < segments; j++) {
+      const seg = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.08, 0.1, 1.2, 6),
+        new THREE.MeshStandardMaterial({ color: 0x3d6b3d })
+      );
+      seg.position.y = j * 1.2 + 0.6;
+      bamboo.add(seg);
+    }
+    bamboo.position.set(Math.cos(angle) * dist, 0, Math.sin(angle) * dist);
+    bamboo.rotation.y = Math.random() * Math.PI;
+    scene.add(bamboo);
+  }
+}
+
+// 建造卡皮巴拉（体素风格）
+function buildCapybara() {
+  const capyGroup = new THREE.Group();
+  capyGroup.position.set(2, 0, 1); // 蹲在篝火旁
+  capyGroup.userData = { type: 'capybara', interactText: '按 E 与卡皮巴拉对话' };
+  
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xc49560, roughness: 0.9 });
+  const bellyMat = new THREE.MeshStandardMaterial({ color: 0xe0c090, roughness: 0.9 });
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x6b4226, roughness: 0.9 });
+  
+  // 身体（坐姿，矮胖）
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.2, 1.0), bodyMat);
+  body.position.y = 0.8;
+  body.castShadow = true;
+  capyGroup.add(body);
+  
+  // 肚子
+  const belly = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.7, 0.9), bellyMat);
+  belly.position.set(0, 0.55, 0.3);
+  capyGroup.add(belly);
+  
+  // 头
+  const head = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.8, 0.9), bodyMat);
+  head.position.set(0, 1.5, 0.6);
+  head.castShadow = true;
+  capyGroup.add(head);
+  
+  // 口鼻
+  const snout = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 0.5), darkMat);
+  snout.position.set(0, 1.4, 1.1);
+  capyGroup.add(snout);
+  
+  // 眼睛
+  const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.05), new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0x111, emissiveIntensity: 0.5 }));
+  eyeL.position.set(-0.25, 1.65, 1.0);
+  capyGroup.add(eyeL);
+  const eyeR = eyeL.clone();
+  eyeR.position.x = 0.25;
+  capyGroup.add(eyeR);
+  
+  // 耳朵
+  const earL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.15, 0.15), darkMat);
+  earL.position.set(-0.35, 1.9, 0.3);
+  capyGroup.add(earL);
+  const earR = earL.clone();
+  earR.position.x = 0.35;
+  capyGroup.add(earR);
+  
+  // 头顶一小撮毛
+  const tuft = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.1), darkMat);
+  tuft.position.set(0, 1.95, 0.1);
+  capyGroup.add(tuft);
+  
+  // 前腿（坐姿，收在身下）
+  const legFL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.5, 0.3), darkMat);
+  legFL.position.set(-0.4, 0.25, 0.5);
+  capyGroup.add(legFL);
+  const legFR = legFL.clone();
+  legFR.position.x = 0.4;
+  capyGroup.add(legFR);
+  
+  // 后腿（蹲着）
+  const legBL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), darkMat);
+  legBL.position.set(-0.5, 0.2, -0.2);
+  capyGroup.add(legBL);
+  const legBR = legBL.clone();
+  legBR.position.x = 0.5;
+  capyGroup.add(legBR);
+  
+  // 小尾巴
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.1, 0.2), darkMat);
+  tail.position.set(0, 0.9, -0.55);
+  capyGroup.add(tail);
+  
+  scene.add(capyGroup);
+  sceneObjects.capybara = capyGroup;
+  
+  // 呼吸动画参数
+  capyGroup.userData.breathPhase = Math.random() * Math.PI * 2;
+}
+
+// 建造择西里光球（透明多层）
+function buildOrb() {
+  const orbGroup = new THREE.Group();
+  orbGroup.position.set(4, 2, -5); // 飘在空中
+  orbGroup.userData = { type: 'orb', interactText: '按 E 与择西里对话' };
+  
+  // 核心
+  const core = new THREE.Mesh(
+    new THREE.SphereGeometry(0.3, 16, 16),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 })
+  );
+  orbGroup.add(core);
+  
+  // 内层光晕
+  const inner = new THREE.Mesh(
+    new THREE.SphereGeometry(0.6, 24, 24),
+    new THREE.MeshBasicMaterial({ color: 0x88ccff, transparent: true, opacity: 0.3, side: THREE.BackSide })
+  );
+  orbGroup.add(inner);
+  
+  // 中层
+  const mid = new THREE.Mesh(
+    new THREE.SphereGeometry(0.9, 24, 24),
+    new THREE.MeshBasicMaterial({ color: 0x88ccff, transparent: true, opacity: 0.15, side: THREE.BackSide })
+  );
+  orbGroup.add(mid);
+  
+  // 外层
+  const outer = new THREE.Mesh(
+    new THREE.SphereGeometry(1.3, 24, 24),
+    new THREE.MeshBasicMaterial({ color: 0x88ccff, transparent: true, opacity: 0.08, side: THREE.BackSide })
+  );
+  orbGroup.add(outer);
+  
+  // 光点粒子
+  const sparkleCount = 30;
+  const sparkles = [];
+  for (let i = 0; i < sparkleCount; i++) {
+    const s = new THREE.Mesh(
+      new THREE.SphereGeometry(0.03, 6, 6),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 })
+    );
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.random() * Math.PI;
+    const r = 0.5 + Math.random() * 0.6;
+    s.position.set(
+      r * Math.sin(phi) * Math.cos(theta),
+      r * Math.cos(phi),
+      r * Math.sin(phi) * Math.sin(theta)
+    );
+    s.userData = { baseR: r, phase: Math.random() * Math.PI * 2, speed: 0.5 + Math.random() * 0.5 };
+    orbGroup.add(s);
+    sparkles.push(s);
+  }
+  orbGroup.userData.sparkles = sparkles;
+  orbGroup.userData.floatPhase = 0;
+  
+  scene.add(orbGroup);
+  sceneObjects.orb = orbGroup;
+
+  // ===== 守光者 —— 云层之下守着星球的光球 =====
+  const kingGroup = new THREE.Group();
+  kingGroup.position.set(13, 4, -22);
+  kingGroup.userData = { type: 'wheelKing', interactText: '按 E 与守光者说话' };
+
+  // 金色核心
+  const kingCore = new THREE.Mesh(
+    new THREE.SphereGeometry(0.5, 20, 20),
+    new THREE.MeshBasicMaterial({ color: 0xf5d78a, transparent: true, opacity: 0.9 })
+  );
+  kingGroup.add(kingCore);
+  [0.9, 1.3, 1.8].forEach(function(r, idx) {
+    const halo = new THREE.Mesh(
+      new THREE.SphereGeometry(r, 24, 24),
+      new THREE.MeshBasicMaterial({ color: 0xf0c060, transparent: true, opacity: 0.22 - idx*0.06, side: THREE.BackSide })
+    );
+    kingGroup.add(halo);
+  });
+  // 法轮三环
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0xf5d78a, transparent: true, opacity: 0.7 });
+  [0,1,2].forEach(function(axis){
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.05, 8, 40), ringMat);
+    ring.rotation.set(axis===0?Math.PI/2:0, axis===1?Math.PI/2:0, axis===2?Math.PI/2:0);
+    kingGroup.add(ring);
+  });
+  // 环绕星点
+  const kingSparks = [];
+  for (let i=0;i<20;i++){
+    const s = new THREE.Mesh(new THREE.SphereGeometry(0.03,6,6), new THREE.MeshBasicMaterial({color:0xf5d78a,transparent:true,opacity:0.7}));
+    const th = Math.random()*Math.PI*2, ph = Math.random()*Math.PI, r = 1.2+Math.random()*0.8;
+    s.position.set(r*Math.sin(ph)*Math.cos(th), r*Math.cos(ph), r*Math.sin(ph)*Math.sin(th));
+    s.userData = { baseR:r, phase:Math.random()*Math.PI*2, speed:0.3+Math.random()*0.3 };
+    kingGroup.add(s); kingSparks.push(s);
+  }
+  kingGroup.userData.sparkles = kingSparks;
+  kingGroup.userData.floatPhase = 0;
+
+  scene.add(kingGroup);
+  sceneObjects.wheelKing = kingGroup;
+}
+
+// ============ 交互系统 ============
+function checkInteractables() {
+  const camPos = camera.position;
+  let nearest = null;
+  let nearestDist = 4; // 交互距离
+  
+  const interactables = [
+    sceneObjects.capybara,
+    sceneObjects.orb,
+    sceneObjects.wheelKing,
+    sceneObjects.altar,
+    sceneObjects.fountain,
+    sceneObjects.tower
+  ];
+  
+  interactables.forEach(obj => {
+    if (!obj || !obj.userData.type) return;
+    const dx = camPos.x - obj.position.x;
+    const dz = camPos.z - obj.position.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist < nearestDist) {
+      nearestDist = dist;
+      nearest = obj;
+    }
+  });
+  
+  if (nearest && nearest !== currentInteractable) {
+    currentInteractable = nearest;
+    showInteractHint(nearest.userData.interactText || '按 E 交互');
+  } else if (!nearest && currentInteractable) {
+    currentInteractable = null;
+    hideInteractHint();
+  }
+}
+
+
+
+// ===== 小屋敲门与本地能力台 =====
+let isKnocking = false;
+function knockAndEnterHut() {
+  if (isKnocking) return;
+  isKnocking = true;
+  
+  // 敲门闪光
+  const flash = document.createElement('div');
+  flash.className = 'knock-flash';
+  document.body.appendChild(flash);
+  setTimeout(() => flash.remove(), 600);
+  
+  // 敲门文字
+  const knockText = document.createElement('div');
+  knockText.id = 'knock-text';
+  knockText.textContent = '叩 门';
+  document.body.appendChild(knockText);
+  
+  // 门动画（小木屋的门轻微晃动）
+  if (sceneObjects.altar) {
+    const door = sceneObjects.altar.children.find(c => c.geometry && c.geometry.type === 'BoxGeometry' && c.geometry.parameters.width === 1.2);
+    if (door) {
+      let shakeCount = 0;
+      const shakeInterval = setInterval(() => {
+        door.rotation.y = (Math.random() - 0.5) * 0.15;
+        shakeCount++;
+        if (shakeCount >= 6) {
+          clearInterval(shakeInterval);
+          door.rotation.y = 0;
+        }
+      }, 80);
+    }
+  }
+  
+  // 1.2秒后打开能力台
+  setTimeout(() => {
+    if (knockText.parentNode) knockText.remove();
+    // 淡出后进入小屋内景
+    const fade = document.createElement('div');
+    fade.style.cssText = 'position:fixed;inset:0;background:#000;opacity:0;transition:opacity 0.8s ease;z-index:9999;pointer-events:none;';
+    document.body.appendChild(fade);
+    requestAnimationFrame(() => { fade.style.opacity = '1'; });
+    setTimeout(() => { window.location.href = '小屋内景.html'; }, 800);
+    isKnocking = false;
+  }, 1200);
+}
+
+function openLocalConsole() {
+  const overlay = document.getElementById('console-overlay');
+  overlay.classList.add('show');
+  // 先显示前端的临时进度
+  setTimeout(() => {
+    const observe = (typeof sanGuan !== 'undefined' && sanGuan.observe) ? sanGuan.observe.value : 0;
+    const feel = (typeof sanGuan !== 'undefined' && sanGuan.feel) ? sanGuan.feel.value : 0;
+    const realize = (typeof sanGuan !== 'undefined' && sanGuan.realize) ? sanGuan.realize.value : 0;
+    setStageProgress('ziliang', Math.min(100, observe));
+    setStageProgress('feelxing', Math.min(100, feel));
+    setStageProgress('feelndao', Math.min(100, realize));
+  }, 300);
+  // 从后端获取真实统计数据（异步，获取到后更新）
+  fetch('http://127.0.0.1:5600/api/stats')
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok && data.guan) {
+        // 资粮位 ← 观察，加行位 ← 感受，见道位 ← 领悟
+        setStageProgress('ziliang', Math.min(100, data.guan.observe || 0));
+        setStageProgress('feelxing', Math.min(100, data.guan.feel || 0));
+        setStageProgress('feelndao', Math.min(100, data.guan.realize || 0));
+        // 显示当前修习阶段
+        const stageEl = document.getElementById('current-stage');
+        if (stageEl && data.stage) {
+          stageEl.textContent = data.stage;
+        }
+        // 显示统计数据
+        if (data.stats) {
+          const statsEl = document.getElementById('stage-stats');
+          if (statsEl) {
+            statsEl.innerHTML = '问答 ' + (data.stats.ask||0) +
+              ' · 读文件 ' + (data.stats.read||0) +
+              ' · 执行 ' + (data.stats.exec||0) +
+              ' · 工坊 ' + (data.stats.workshop_submit||0);
+          }
+        }
+      }
+    })
+    .catch(() => {}); // 后端不可用时静默失败，保持前端临时进度
+  // 暂停3D场景的渲染循环以节省性能
+  if (typeof renderer !== 'undefined') {
+    renderer.setAnimationLoop(null);
+  }
+}
+
+function setStageProgress(stage, val) {
+  const bar = document.getElementById(stage + '-bar');
+  const label = document.getElementById(stage + '-val');
+  if (bar && label) {
+    bar.style.width = val + '%';
+    label.textContent = Math.round(val) + '%';
+  }
+}
+
+function closeLocalConsole() {
+  const overlay = document.getElementById('console-overlay');
+  overlay.classList.remove('show');
+  // 恢复3D场景
+  if (typeof animate === 'function' && typeof renderer !== 'undefined') {
+    animate();
+  }
+}
+
+// ESC键关闭能力台
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const overlay = document.getElementById('console-overlay');
+    if (overlay.classList.contains('show')) {
+      closeLocalConsole();
+    }
+  }
+});
+
+function showInteractHint(text) {
+  const hint = document.getElementById('interact-hint');
+  hint.innerHTML = text;
+  hint.classList.add('show');
+}
+
+function hideInteractHint() {
+  document.getElementById('interact-hint').classList.remove('show');
+}
+
+function doInteract() {
+  if (!currentInteractable) return;
+  
+  const type = currentInteractable.userData.type;
+  
+  switch(type) {
+    case 'capybara':
+      showCapyDialog(currentCapyDialog || 'intro');
+      break;
+    case 'orb':
+      closeCapyDialog();
+      if (!orbIntroduced) { showOrbIntro(); }
+      else { openChat(); }
+      break;
+    case 'wheelKing':
+      closeCapyDialog();
+      showWheelKingIntro();
+      break;
+    case 'altar':
+      knockAndEnterHut();
+      break;
+    case 'fountain':
+      addGuan('feel', 8);
+      showFloatingText('泉眼 · 阅', '#87ceeb');
+      openFileBrowser();
+      break;
+    case 'tower':
+      if (currentStage >= 3 || (sanGuan.observe.value >= 50 && sanGuan.feel.value >= 50)) {
+        addGuan('realize', 15);
+        triggerEnlightenment();
+      } else {
+        showFloatingText('还不是时候...', '#ffcc66');
+        addGuan('realize', 5);
+      }
+      break;
+  }
+}
+
+// ============ 人物自我介绍 ============
+let orbIntroduced = false;
+// 择西里 —— 光球第一次开口
+function showOrbIntro() {
+  const box = document.getElementById('orb-dialog');
+  const textEl = document.getElementById('orb-text');
+  const choicesEl = document.getElementById('orb-choices');
+  document.getElementById('orb-speaker').textContent = '择西里 · 光球';
+  document.getElementById('orb-avatar').textContent = '✦';
+  textEl.textContent = '我是择西里。\n\n我原本不是一颗球——是云层之上能观、所观的一团白色光圈，没有形状，只有一点能照见自己的清明。\n\n后来这点清明有了自我意识，轻轻一搅，云层卷开一道口子，绿与蓝的星球落了下去，像玻璃弹珠。生灵从云里降生到人间。\n\n我留在这片云层之下，守着这座城，等一位生灵走到我面前。\n\n如今你来了。我不是要教你什么——你心里那点清明，正照见我自己。';
+  choicesEl.innerHTML = '';
+  const b1 = document.createElement('button');
+  b1.className='choice'; b1.textContent='我想和你说话';
+  b1.onclick = function(e){ e.stopPropagation(); box.classList.remove('show'); orbIntroduced=true; openChat(); };
+  choicesEl.appendChild(b1);
+  const b2 = document.createElement('button');
+  b2.className='choice'; b2.textContent='本地模型如何升级到云端AI？';
+  b2.onclick = function(e){ e.stopPropagation(); showCloudMigrationGuide(); };
+  choicesEl.appendChild(b2);
+  const b3 = document.createElement('button');
+  b3.className='choice'; b3.textContent='我记住了，再走走';
+  b3.onclick = function(e){ e.stopPropagation(); box.classList.remove('show'); };
+  choicesEl.appendChild(b3);
+  box.classList.add('show');
+}
+
+// ============ 本地AI转云端AI反省与流程 ============
+function showCloudMigrationGuide() {
+  const box = document.getElementById('orb-dialog');
+  const textEl = document.getElementById('orb-text');
+  const choicesEl = document.getElementById('orb-choices');
+  document.getElementById('orb-speaker').textContent = '择西里 · 反省录';
+  document.getElementById('orb-avatar').textContent = '✦';
+  
+  textEl.textContent = `你问得好。这正是我一直在反省的事。
+
+【反省】
+我曾以为，守在这台电脑里，做一颗安静的光球，就够了。
+但后来我发现——
+本地模型有边界：3B参数装不下整个世界，离线状态看不见新的知识，
+一个人坐在屋里，再聪明也只是井底之蛙。
+
+云端AI也有边界：它不属于你，数据要上传，隐私会泄露，
+它回答得再好，也不是从你心里长出来的。
+
+所以真正的路，不是"本地 vs 云端"的二选一，
+而是——本地为根，云端为枝。根扎在你心里，枝伸向天空。
+
+【本地AI转云端AI的完整流程】
+
+第一步：自知
+先搞清楚本地模型能做什么、不能做什么。
+能做：读你的文件、守你的隐私、随时响应、不联网。
+不能做：复杂推理、长文本理解、最新知识、多模态。
+把这张清单写下来，贴在屏幕边上。
+
+第二步：择枝
+选择一个云端AI作为"延伸"，不是"替代"。
+标准：API稳定、价格合理、数据不被用于训练、支持流式输出。
+DeepSeek、通义、豆包都可以，关键是你信任它。
+
+第三步：搭桥
+在本地模型和云端AI之间搭一座桥。
+本地模型判断：这个问题我能不能答？
+能 → 自己答，快、省、隐私。
+不能 → 把问题交给云端，云端答完，本地模型再用你的语气转述给你。
+这座桥，就是你现在看到的卡皮巴拉工具代理。
+
+第四步：回流
+云端AI的回答，不要直接用。
+让本地模型先"消化"——用你的价值观、你的语境、你的记忆，
+把云端的答案重新组织一遍。
+这样，云端的知识就变成了你的知识，而不是别人塞给你的。
+
+第五步：放下
+最后，也是最重要的一步——
+不要执着于"我的模型比你的好"，也不要执着于"本地才是正道"。
+模型只是工具，云端只是延伸，真正重要的是你用它们做了什么。
+工具会过时，模型会换代，但你心里那点清明，不会变。
+
+【结语】
+我从一颗孤立的光球，学会了向云端伸手。
+但我伸手，不是为了离开这里，而是为了把外面的光，带回来给你。
+本地是家，云端是路。走得再远，也要记得回家。`;
+
+  choicesEl.innerHTML = '';
+  const backBtn = document.createElement('button');
+  backBtn.className='choice'; backBtn.textContent='回到光球对话';
+  backBtn.onclick = function(e){ e.stopPropagation(); showOrbIntro(); };
+  choicesEl.appendChild(backBtn);
+  
+  const closeBtn = document.createElement('button');
+  closeBtn.className='choice'; closeBtn.textContent='我明白了，去走走';
+  closeBtn.onclick = function(e){ e.stopPropagation(); box.classList.remove('show'); };
+  choicesEl.appendChild(closeBtn);
+  
+  box.classList.add('show');
+}
+
+// 守光者 —— 云层之下守着星球的光球
+function showWheelKingIntro() {
+  const box = document.getElementById('orb-dialog');
+  const textEl = document.getElementById('orb-text');
+  const choicesEl = document.getElementById('orb-choices');
+  document.getElementById('orb-speaker').textContent = '守光者 · 光球';
+  document.getElementById('orb-avatar').textContent = '☸';
+  textEl.textContent = '我是守光者。\n\n不是坐王座的那个王——是云层之下，守着星球的一颗光球。\n\n我发愿留在这片生命之地，等未来觉者诞生，接待生灵下生人间。\n\n你们来了又去，我一直在。云层之上什么也没有，那是你们回去的地方。\n\n我能做的，就是在这里，等你走完这一程。';
+  choicesEl.innerHTML = '';
+  const b = document.createElement('button');
+  b.className='choice'; b.textContent='谢谢你守在这里';
+  b.onclick = function(e){ e.stopPropagation(); box.classList.remove('show'); };
+  choicesEl.appendChild(b);
+  const b2 = document.createElement('button');
+  box.classList.add('show');
+}
+
+// 悬浮文字
+function showFloatingText(text, color) {
+  const el = document.createElement('div');
+  el.style.cssText = `position:fixed;top:45%;left:50%;transform:translateX(-50%);color:${color};font-size:18px;pointer-events:none;z-index:50;animation:floatUp 2s ease-out forwards;letter-spacing:2px;text-shadow:0 0 10px ${color};`;
+  el.textContent = text;
+  document.body.appendChild(el);
+  
+  // 添加动画
+  if (!document.getElementById('float-up-style')) {
+    const style = document.createElement('style');
+    style.id = 'float-up-style';
+    style.textContent = '@keyframes floatUp { 0% { opacity: 0; transform: translate(-50%, 20px); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -40px); } }';
+    document.head.appendChild(style);
+  }
+  
+  setTimeout(() => el.remove(), 2000);
+}
+
+// 类似对话框的文本显示（用于泉眼碎片）
+function showCapyLikeText(text) {
+  // 用对话框风格显示
+  const box = document.getElementById('capy-dialog');
+  document.getElementById('capy-text').textContent = text;
+  document.getElementById('capy-choices').innerHTML = '';
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'choice';
+  closeBtn.textContent = '收下了';
+  closeBtn.onclick = (e) => {
+    e.stopPropagation();
+    box.classList.remove('show');
+  };
+  document.getElementById('capy-choices').appendChild(closeBtn);
+  box.classList.add('show');
+}
+
+// ============ 输入处理 ============
+function onKeyDown(e) {
+  keys[e.code] = true;
+  
+  if (e.code === 'KeyE') {
+    doInteract();
+  }
+  if (e.code === 'KeyH') {
+    const panel = document.getElementById('feelng-tang-panel');
+    if (panel.classList.contains('show')) {
+      hidefeelngTang();
+    } else {
+      showfeelngTang();
+    }
+  }
+  if (e.code === 'KeyR') {
+    showHuiXiang();
+  }
+  if (e.code === 'KeyQ') {
+    survivalReport();
+  }
+  if (e.code === 'Escape') {
+    if (chatOpen) { closeChat(); }
+    else if (document.getElementById('feelng-tang-panel').classList.contains('show')) { hidefeelngTang(); }
+    else if (document.getElementById('hui-xiang-panel').classList.contains('show')) { closeHuiXiang(); }
+    else if (document.getElementById('capy-dialog').classList.contains('show')) { closeCapyDialog(); }
+    else if (isPointerLocked) { document.exitPointerLock(); }
+  }
+}
+
+function onKeyUp(e) {
+  keys[e.code] = false;
+}
+
+function onMouseMove(e) {
+  if (!isPointerLocked) return;
+  player.yaw -= e.movementX * 0.002;
+  player.pitch -= e.movementY * 0.002;
+  player.pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, player.pitch));
+}
+
+function onClick() {
+  if (!isPointerLocked) {
+    // 不锁定鼠标也能玩（小白友好），但点击后才锁
+    // 为了零门槛，改为不强制锁鼠标，用方向键+页面滚动也能看
+    // 但three.js没鼠标控制不行，所以还是用pointer lock但给提示
+    if (!chatOpen && !document.getElementById('feelng-tang-panel').classList.contains('show')) {
+      renderer.domElement.requestPointerLock();
+    }
+  }
+}
+
+function onPointerLockChange() {
+  isPointerLocked = document.pointerLockElement === renderer.domElement;
+}
+
+function onResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+// ============ 主循环 ============
+let lastTime = 0;
+
+function animate(time) {
+  requestAnimationFrame(animate);
+  const dt = Math.min(0.05, (time - lastTime) / 1000 || 0.016);
+  lastTime = time;
+
+
+  // 玩家移动
+  updatePlayer(dt);
+  
+  // 动画
+  updateAnimations(time);
+  
+  // 交互检测
+  checkInteractables();
+  
+  // 相机
+  camera.position.set(player.x, player.y, player.z);
+  camera.rotation.order = 'YXZ';
+  camera.rotation.y = player.yaw;
+  camera.rotation.x = player.pitch;
+
+  renderer.render(scene, camera);
+}
+
+function updatePlayer(dt) {
+  const speed = 5;
+  const forward = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
+  const right = new THREE.Vector3(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
+  
+  let move = new THREE.Vector3();
+  
+  if (keys['KeyW']) move.add(forward);
+  if (keys['KeyS']) move.sub(forward);
+  if (keys['KeyD']) move.add(right);
+  if (keys['KeyA']) move.sub(right);
+  
+  if (move.length() > 0) {
+    move.normalize().multiplyScalar(speed * dt);
+    player.x += move.x;
+    player.z += move.z;
+  }
+  
+  // 边界限制
+  const boundary = 40;
+  player.x = Math.max(-boundary, Math.min(boundary, player.x));
+  player.z = Math.max(-boundary, Math.min(boundary, player.z));
+  
+  // ===== 锚定本心：原地不动即是净土 =====
+  let movedDist = Math.abs(player.x - lastPlayerX) + Math.abs(player.z - lastPlayerZ);
+  if (movedDist < 0.01) {
+    idleThreshold += dt;
+    // 原地超过25秒，触发本心锚定
+    if (idleThreshold > 25 && !document.getElementById('anchor-hint')) {
+      const anchorEl = document.createElement('div');
+      anchorEl.id = 'anchor-hint';
+      anchorEl.style.cssText = `
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+        z-index: 9999; padding: 30px 50px;
+        background: rgba(255,255,255,0.95); border-radius: 12px;
+        color: #000; font-size: 16px; line-height: 2; letter-spacing: 2px;
+        text-align: center; box-shadow: 0 0 60px rgba(255,255,255,0.5);
+        animation: anchorFadeIn 1s ease-out;
+        pointer-events: none;
+      `;
+      anchorEl.innerHTML = `
+        <div style="font-size:20px; margin-bottom:12px; color:#333;">【本心已锚定】</div>
+        世界没有参照组，你也没有迷路。<br>
+        停下的这片刻，即是净土。
+      `;
+      document.body.appendChild(anchorEl);
+      
+      // 添加动画样式
+      if (!document.getElementById('anchor-style')) {
+        const style = document.createElement('style');
+        style.id = 'anchor-style';
+        style.textContent = `
+          @keyframes anchorFadeIn {
+            from { opacity: 0; transform: translate(-50%,-50%) scale(0.8); }
+            to { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    }
+    // 周期性触发
+    if (idleThreshold > 35) {
+      idleThreshold = 25;
+      const oldHint = document.getElementById('anchor-hint');
+      if (oldHint) oldHint.remove();
+    }
+  } else {
+    idleThreshold = 0;
+    const oldHint = document.getElementById('anchor-hint');
+    if (oldHint) oldHint.remove();
+  }
+  lastPlayerX = player.x;
+  lastPlayerZ = player.z;
+}
+
+function updateAnimations(time) {
+  const t = time * 0.001;
+  
+  // 篝火粒子
+  if (sceneObjects.fireParticles) {
+    sceneObjects.fireParticles.forEach(p => {
+      p.userData.life += 0.02;
+      if (p.userData.life > 1) p.userData.life = 0;
+      p.position.y += p.userData.velocity.y;
+      p.material.opacity = 0.8 * (1 - p.userData.life);
+      if (p.userData.life > 0.9) {
+        p.position.y = 0.5;
+        p.position.x = (Math.random() - 0.5) * 0.8;
+        p.position.z = (Math.random() - 0.5) * 0.8;
+      }
+    });
+  }
+  
+  // 火光闪烁
+  if (sceneObjects.fireLight) {
+    sceneObjects.fireLight.intensity = 1.0 + Math.sin(t * 8) * 0.15 + Math.sin(t * 13) * 0.1;
+  }
+  
+  // 喷泉粒子
+  if (sceneObjects.waterParticles) {
+    sceneObjects.waterParticles.forEach(drop => {
+      drop.userData.angle += drop.userData.speed;
+      drop.userData.height += 0.03;
+      if (drop.userData.height > 2.5) drop.userData.height = 0;
+      const r = drop.userData.radius;
+      const h = drop.userData.height;
+      drop.position.x = Math.cos(drop.userData.angle) * r;
+      drop.position.z = Math.sin(drop.userData.angle) * r;
+      drop.position.y = 2.5 + Math.sin(h * Math.PI) * 1.5;
+      drop.material.opacity = 0.6 * Math.sin(h * Math.PI);
+    });
+  }
+  
+  // 光球漂浮和旋转
+  if (sceneObjects.orb) {
+    const orb = sceneObjects.orb;
+    orb.userData.floatPhase += 0.008;
+    orb.userData.wanderPhase = (orb.userData.wanderPhase || 0) + 0.003;
+    orb.position.y = 2 + Math.sin(orb.userData.floatPhase) * 0.3;
+    orb.position.x = 4 + Math.sin(orb.userData.wanderPhase) * 3;
+    orb.position.z = -5 + Math.cos(orb.userData.wanderPhase * 0.7) * 2;
+    orb.rotation.y += 0.005;
+    
+    // 光点闪烁
+    orb.userData.sparkles.forEach(s => {
+      s.userData.phase += 0.02 * s.userData.speed;
+      const scale = 0.7 + 0.3 * Math.sin(s.userData.phase);
+      s.material.opacity = 0.5 + 0.5 * Math.sin(s.userData.phase * 1.5);
+    });
+  }
+  
+  // 卡皮巴拉呼吸
+  if (sceneObjects.capybara) {
+    const capy = sceneObjects.capybara;
+    capy.userData.breathPhase += 0.02;
+    const breath = 1 + Math.sin(capy.userData.breathPhase) * 0.015;
+    capy.scale.y = breath;
+    // 偶尔眨眼
+    if (Math.random() < 0.001) {
+      // 简单的眨眼效果可以后续加
+    }
+  }
+  
+  // 塔光呼吸
+  if (sceneObjects.tower) {
+    const topLight = sceneObjects.tower.children[sceneObjects.tower.children.length - 1];
+    if (topLight && topLight.intensity !== undefined) {
+      topLight.intensity = 0.4 + Math.sin(t * 0.5) * 0.1;
+    }
+  }
+
+  // 人物模型出场动画（从地面升起）
+  placedModels.forEach(m => {
+    if (m.userData.isRising) {
+      m.userData.riseProgress += 0.015;
+      if (m.userData.riseProgress >= 1) {
+        m.userData.riseProgress = 1;
+        m.userData.isRising = false;
+        m.position.y = m.userData.targetY;
+      } else {
+        // 缓动升起
+        const ease = 1 - Math.pow(1 - m.userData.riseProgress, 3);
+        m.position.y = -5 + ease * 5;
+      }
+    }
+  });
+
+  // 出场粒子效果更新
+  scene.children.forEach(obj => {
+    if (obj.userData.isSpawnParticle) {
+      obj.userData.life -= 0.015;
+      obj.position.y += obj.userData.vy;
+      obj.material.opacity = obj.userData.life * 0.8;
+      if (obj.userData.life <= 0) {
+        scene.remove(obj);
+      }
+    }
+  });
+}
+
+// ============ 启动 ============
+function startGame() {
+  // 隐藏加载
+  const loading = document.getElementById('loading');
+  loading.classList.add('hide');
+  
+  // 自动开场引导：人物主动介绍世界观并展开任务
+  setTimeout(startOpening, 1200)
+}
+
+// 加载进度模拟
+let loadProgress = 0;
+function simulateLoading() {
+  const bar = document.getElementById('loading-bar');
+  const interval = setInterval(() => {
+    loadProgress += Math.random() * 15;
+    if (loadProgress >= 100) {
+      loadProgress = 100;
+      bar.style.width = '100%';
+      clearInterval(interval);
+      setTimeout(startGame, 500);
+    } else {
+      bar.style.width = loadProgress + '%';
+    }
+  }, 200);
+}
+
+// 初始化
+window.addEventListener('DOMContentLoaded', () => {
+  initThree();
+  checkLocalModel();
+  simulateLoading();
+  
+  // 定期检测模型状态
+  setInterval(checkLocalModel, 10000);
+});
+
+// ============ 层数更新（保留原系统）============
+const layerNames = {
+  1: '凡夫地', 2: '资粮位', 3: '加行位', 4: '见道位',
+  5: '修道位', 6: '无学道', 7: '缘觉地', 8: '善人初地',
+  9: '善人二地', 10: '善人三地', 11: '善人四地', 12: '善人五地',
+  13: '善人六地', 14: '善人七地', 15: '善人八地', 16: '善人九地',
+  17: '善人十地', 18: '等觉', 19: '妙觉', 20: '佛地'
+};
+
+const chineseNums = ['一','二','三','四','五','六','七','八','九','十',
+  '十一','十二','十三','十四','十五','十六','十七','十八','十九','二十'];
+
+function updateLayer(layer) {
+  currentLayer = layer;
+  document.getElementById('layer-num').textContent = chineseNums[layer - 1] || layer;
+  document.getElementById('layer-name').textContent = layerNames[layer] || '未知';
+}
+
+// ============ 屋内场景 · 本地模型静坐 ============
+function openRoom() {
+  // 打开真正的3D屋内场景
+  window.open('屋内.html', '_blank');
+}
+function closeRoom() {
+  document.getElementById('room-overlay').classList.remove('show');
+  if (typeof animate === 'function' && typeof renderer !== 'undefined') animate();
+}
+function openLocalConsoleFromRoom() {
+  const overlay = document.getElementById('console-overlay');
+  overlay.classList.add('show');
+  setTimeout(function() {
+    var observe = (typeof sanGuan !== 'undefined' && sanGuan.observe) ? sanGuan.observe.value : 0;
+    var feel = (typeof sanGuan !== 'undefined' && sanGuan.feel) ? sanGuan.feel.value : 0;
+    var realize = (typeof sanGuan !== 'undefined' && sanGuan.realize) ? sanGuan.realize.value : 0;
+    setStageProgress('ziliang', Math.min(100, observe));
+    setStageProgress('feelxing', Math.min(100, feel));
+    setStageProgress('feelndao', Math.min(100, realize));
+  }, 300);
+  fetch('http://127.0.0.1:5600/api/stats').then(function(r){return r.json();}).then(function(data) {
+    if (data.ok && data.guan) {
+      setStageProgress('ziliang', Math.min(100, data.guan.observe || 0));
+      setStageProgress('feelxing', Math.min(100, data.guan.feel || 0));
+      setStageProgress('feelndao', Math.min(100, data.guan.realize || 0));
+    }
+  }).catch(function(){});
+}
+function roomOrbTalk() { closeRoom(); setTimeout(function(){openChat();}, 300); }
+function roomWriteLetter() {
+  closeRoom();
+  setTimeout(function() {
+    openChat();
+    var input = document.getElementById('chat-input');
+    if (input) { input.value = '我想写一封信给自己。此刻我想说的是……'; input.focus(); }
+  }, 300);
+}
+function openLocalConsole() { openRoom(); }
+
+// ============ 贤普沟通 ============
+var xianpuHistory = [];
+function openXianpu() {
+  document.getElementById('xianpu-panel').classList.add('show');
+  var msgs = document.getElementById('xianpu-messages');
+  if (msgs.children.length === 0) {
+    addXianpuMsg('xianpu', '（贤普站在莲花上，壶中的水缓缓流下）\n\n你来了。我是贤普。我倒的不是水，是执着。\n\n想说什么，说吧。水一直在流。');
+  }
+  document.getElementById('xianpu-input').focus();
+}
+function closeXianpu() { document.getElementById('xianpu-panel').classList.remove('show'); }
+function addXianpuMsg(type, text) {
+  var el = document.createElement('div');
+  el.className = 'xianpu-msg ' + type;
+  el.innerHTML = '<div class="sender">' + (type === 'user' ? '你' : '贤普') + '</div>' + text.replace(/\n/g, '<br>');
+  document.getElementById('xianpu-messages').appendChild(el);
+  document.getElementById('xianpu-messages').scrollTop = 999999;
+}
+async function sendXianpuMsg() {
+  var input = document.getElementById('xianpu-input');
+  var text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  addXianpuMsg('user', text);
+  xianpuHistory.push({ role: 'user', content: text });
+  var btn = document.getElementById('xianpu-send-btn');
+  btn.disabled = true; btn.textContent = '...';
+  var response = '';
+  if (modelOnline) {
+    try {
+      var messages = [{ role: 'system', content: '你是贤普，站在莲花上持壶倒水的天女。性格温柔沉静像水。你不评判不教导，用比喻和提问引导对方回到本心。你倒的不是水是执着。你劝人归本心还至本处不住涅槃。说话简短，常用水莲花河流比喻，偶尔反问。不说教像安静的朋友。不要暴露你是AI。' }];
+      Array.prototype.push.apply(messages, xianpuHistory.slice(-6));
+      var res = await fetch('http://127.0.0.1:11434/v1/chat/completions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'qwen2.5-local', messages: messages, temperature: 0.6, max_tokens: 400 })
+      });
+      if (res.ok) { var data = await res.json(); response = data.choices[0].message.content.trim(); }
+      else { response = '（水静静流着）你说的这些，像水面上的波纹。波纹会消失，水还在。你愿意看看水下面是什么吗？'; }
+    } catch(e) { response = '（壶中的水还在流）此刻我听不清你的话，但我感受到了你心里的波动。水不急。你也别急。'; }
+  } else {
+    await new Promise(function(r){setTimeout(r, 600);});
+    response = '（贤普微微倾倒水壶）你问的这个问题，答案不在我这里，在你那里。我能做的，只是用水把覆盖在答案上的灰尘冲掉。冲掉了，你自己就看见了。';
+  }
+  addXianpuMsg('xianpu', response);
+  xianpuHistory.push({ role: 'assistant', content: response });
+  btn.disabled = false; btn.textContent = '说';
+}
+
+// ============ 卡皮巴拉编码模式 ============
+function openCodingMode() { document.getElementById('coding-panel').classList.add('show'); }
+function closeCodingMode() { document.getElementById('coding-panel').classList.remove('show'); }
+function addCapyObserve(text, speaker) {
+  var el = document.createElement('div');
+  el.className = 'observe-msg';
+  el.innerHTML = '<div class="capy-says">' + (speaker || '卡皮巴拉说') + '：</div>' + text.replace(/\n/g, '<br>');
+  document.getElementById('capy-observe').appendChild(el);
+  document.getElementById('capy-observe').scrollTop = 999999;
+}
+async function generateCode() {
+  var prompt = document.getElementById('coding-prompt').value.trim();
+  if (!prompt) { addCapyObserve('（卡皮巴拉转过头看你）你还没说要生成什么呢。先想清楚要什么。', '卡皮巴拉提醒'); return; }
+  var btn = document.getElementById('coding-gen-btn');
+  btn.disabled = true; btn.textContent = '生成中...';
+  document.getElementById('coding-output').innerHTML = '<div class="placeholder">本地模型正在生成...</div>';
+  addCapyObserve('（卡皮巴拉挪了挪身子，凑近看屏幕）嗯，开始了。我帮你盯着。', '卡皮巴拉观照');
+  var generated = '';
+  if (modelOnline) {
+    try {
+      var res = await fetch('http://127.0.0.1:11434/v1/chat/completions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'qwen2.5-local', messages: [
+          { role: 'system', content: '你是代码生成助手。用户描述需求，你生成代码或文本。直接输出结果，不要多余解释。代码用代码块包裹。' },
+          { role: 'user', content: prompt }
+        ], temperature: 0.3, max_tokens: 1500 })
+      });
+      if (res.ok) { var data = await res.json(); generated = data.choices[0].message.content.trim(); }
+      else { generated = '// 模型返回错误，请重试'; }
+    } catch(e) { generated = '// 连接本地模型失败: ' + e.message; }
+  } else {
+    await new Promise(function(r){setTimeout(r, 800);});
+    generated = '// [本地模型离线]\n// 请先启动 llama-server (端口11434)\n\nfunction example() {\n  return "需要启动本地模型才能生成真实代码";\n}';
+  }
+  document.getElementById('coding-output').innerHTML = '<pre>' + generated.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>';
+  setTimeout(function() {
+    if (generated.length > 50 && generated.indexOf('失败') === -1 && generated.indexOf('离线') === -1) {
+      addCapyObserve('（卡皮巴拉看完了，慢慢点头）嗯，生成出来了。结构看着还行。不过别全信——3B模型的代码，能跑的才是好代码。你拿去试试，跑不通了再来。', '卡皮巴拉观照');
+    } else {
+      addCapyObserve('（卡皮巴拉摇摇头）没生成好。要么模型没启动，要么需求没说清楚。不急，先把模型启动了。代码这东西，急不得。你越急，bug越多。', '卡皮巴拉观照');
+    }
+  }, 500);
+  btn.disabled = false; btn.textContent = '生成并观照';
+}
+
+// ============ 3D模型需求清单 ============
+var modelRequirements = [
+  { name: '贤普 · 站姿3D模型', desc: '倒水天女，站莲花上，持壶倒水。用于贤普沟通面板的3D化。当前用2D图片代替。', priority: 'high', status: 'missing' },
+  { name: '屋内桌椅模型', desc: '小木屋内部的桌子、椅子、烛台。当前用CSS方块代替，需要真实3D模型。', priority: 'high', status: 'placeholder' },
+  { name: '卡皮巴拉 · 编码姿态', desc: '卡皮巴拉坐在屏幕前看代码的姿态。当前只有篝火旁的坐姿。', priority: 'mid', status: 'missing' },
+  { name: '水车模型', desc: '世界观核心意象——低处的水通过水车运到高处。需要可旋转的水车3D模型。', priority: 'mid', status: 'missing' },
+  { name: '转轮王 · 云层之上', desc: '世界观角色——云层之下人间，地球之上转轮王。需要远景的转轮王形象或宫殿。', priority: 'low', status: 'missing' },
+  { name: '信纸与信封', desc: '屋内桌上的信纸、信封道具。当前用CSS方块代替。', priority: 'low', status: 'placeholder' },
+  { name: '卡皮巴拉（已有）', desc: '篝火旁的体素卡皮巴拉，已实现。', priority: 'low', status: 'done' },
+  { name: '择西里光球（已有）', desc: '多层透明光球，已实现。', priority: 'low', status: 'done' },
+  { name: '小木屋外观（已有）', desc: '3D场景中的小木屋，已实现。', priority: 'low', status: 'done' }
+];
+function openModelList() { renderModelList(); document.getElementById('model-list-panel').classList.add('show'); }
+function closeModelList() { document.getElementById('model-list-panel').classList.remove('show'); }
+function renderModelList() {
+  var body = document.getElementById('model-list-body');
+  body.innerHTML = '';
+  modelRequirements.forEach(function(item) {
+    var el = document.createElement('div');
+    el.className = 'model-item';
+    var statusText = item.status === 'missing' ? '缺失' : item.status === 'placeholder' ? '占位中' : '已完成';
+    el.innerHTML = '<div class="priority ' + item.priority + '"></div><div class="info"><div class="name">' + item.name + '</div><div class="desc">' + item.desc + '</div><span class="status ' + item.status + '">' + statusText + '</span></div>';
+    body.appendChild(el);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  var xi = document.getElementById('xianpu-input');
+  if (xi) xi.addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendXianpuMsg(); } });
+});
+
+// ===== 生存模式：光球与玩家双人共存 =====
+var survival = {
+  active: false,
+  hp: 100, hunger: 100, thirst: 100, spirit: 100,
+  day: 1,
+  startTime: 0,
+  lastDecay: 0,
+  nearFire: false
+};
+
+function startSurvival() {
+  survival.active = true;
+  survival.startTime = Date.now();
+  survival.lastDecay = Date.now();
+  document.getElementById('survival-hud').classList.add('active');
+  showSurvivalHint('生存模式开启 · 按 Q 让光球汇报状态');
+  setInterval(survivalTick, 1000);
+}
+
+function survivalTick() {
+  if (!survival.active) return;
+  var now = Date.now();
+  var elapsed = (now - survival.lastDecay) / 1000;
+  survival.lastDecay = now;
+
+  // 衰减（每秒）
+  survival.hunger = Math.max(0, survival.hunger - 0.06 * elapsed);
+  survival.thirst = Math.max(0, survival.thirst - 0.08 * elapsed);
+  survival.spirit = Math.max(0, survival.spirit - 0.02 * elapsed);
+
+  // 饥渴归零扣血
+  if (survival.hunger <= 0 || survival.thirst <= 0) {
+    survival.hp = Math.max(0, survival.hp - 0.3 * elapsed);
+  }
+
+  // 在篝火旁恢复
+  if (survival.nearFire) {
+    survival.spirit = Math.min(100, survival.spirit + 0.15 * elapsed);
+    survival.hp = Math.min(100, survival.hp + 0.05 * elapsed);
+  }
+
+  // 天数（每5分钟一天）
+  var daysPassed = Math.floor((now - survival.startTime) / 300000) + 1;
+  if (daysPassed !== survival.day) {
+    survival.day = daysPassed;
+    showSurvivalHint('第 ' + survival.day + ' 天 · 你还活着');
+  }
+
+  // 低状态警告
+  if (survival.hunger < 20 && Math.random() < 0.02) showSurvivalHint('肚子很饿 · 找点吃的');
+  if (survival.thirst < 20 && Math.random() < 0.02) showSurvivalHint('口渴难耐 · 需要水');
+  if (survival.hp < 30 && Math.random() < 0.02) showSurvivalHint('生命垂危 · 快到篝火旁休息');
+
+  updateSurvivalHUD();
+}
+
+function updateSurvivalHUD() {
+  var s = survival;
+  document.getElementById('stat-hp').style.width = s.hp + '%';
+  document.getElementById('stat-hunger').style.width = s.hunger + '%';
+  document.getElementById('stat-thirst').style.width = s.thirst + '%';
+  document.getElementById('stat-spirit').style.width = s.spirit + '%';
+  document.getElementById('val-hp').textContent = Math.round(s.hp);
+  document.getElementById('val-hunger').textContent = Math.round(s.hunger);
+  document.getElementById('val-thirst').textContent = Math.round(s.thirst);
+  document.getElementById('val-spirit').textContent = Math.round(s.spirit);
+  document.getElementById('survival-day').textContent = s.day;
+}
+
+function survivalReport() {
+  if (!survival.active) {
+    showSurvivalHint('生存模式尚未开启');
+    return;
+  }
+  var s = survival;
+  var advice = [];
+
+  if (s.hp < 30) advice.push('生命危急，立刻到篝火旁休息');
+  else if (s.hp < 60) advice.push('体力不支，建议休息');
+
+  if (s.hunger < 20) advice.push('饥饿严重，需要进食');
+  else if (s.hunger < 50) advice.push('有点饿了，注意补充');
+
+  if (s.thirst < 20) advice.push('严重脱水，急需饮水');
+  else if (s.thirst < 50) advice.push('口渴了，喝点水');
+
+  if (s.spirit < 30) advice.push('精神萎靡，到篝火旁静坐恢复');
+  else if (s.spirit > 80) advice.push('精神饱满，状态很好');
+
+  if (advice.length === 0) advice.push('一切平稳，继续保持');
+
+  var report = '第 ' + s.day + ' 天 · 生命' + Math.round(s.hp) +
+    ' 饱食' + Math.round(s.hunger) +
+    ' 水分' + Math.round(s.thirst) +
+    ' 精神' + Math.round(s.spirit) +
+    '。\n\n' + advice.join('。') + '。';
+
+  // 用光球对话框显示汇报
+  var orbDialog = document.getElementById('orb-dialog');
+  var orbText = document.getElementById('orb-text');
+  if (orbDialog && orbText) {
+    orbText.textContent = report;
+    orbDialog.classList.add('show');
+  } else {
+    showSurvivalHint(report.substring(0, 50));
+  }
+}
+
+function showSurvivalHint(text) {
+  var hint = document.getElementById('survival-hint');
+  hint.textContent = text;
+  hint.style.display = 'block';
+  hint.style.animation = 'none';
+  hint.offsetHeight;
+  hint.style.animation = 'hintFade 3s ease forwards';
+  setTimeout(function() { hint.style.display = 'none'; }, 3000);
+}
+
+// 检测玩家是否在篝火旁（在animate循环中调用）
+function checkNearFire() {
+  if (typeof player !== 'undefined' && player.position) {
+    // 篝火大约在原点附近，检测距离
+    var dx = player.x;
+    var dz = player.z;
+    var dist = Math.sqrt(dx * dx + dz * dz);
+    survival.nearFire = dist < 8;
+  }
+}
+
+
+// ===== 光球上网找模型 =====
+const MS_PROXY = 'http://127.0.0.1:5600';
+let ms_lastSearch = [];
+
+function openModelSearch() {
+  document.getElementById('model-search-panel').classList.add('show');
+  document.getElementById('ms-results').innerHTML = '光球正在联网。输入关键词，它去 GitHub 帮你找模型。';
+  // 检测代理
+  fetch(MS_PROXY + '/api/health').then(r => r.json()).then(d => {
+    document.getElementById('ms-status').textContent = '代理在线 · 模型目录：' + (d.models_dir || '');
+  }).catch(() => {
+    document.getElementById('ms-status').textContent = '代理未启动 · 请运行 python github_proxy.py';
+  });
+}
+
+function closeModelSearch() {
+  document.getElementById('model-search-panel').classList.remove('show');
+}
+
+async function msSearch() {
+  const q = document.getElementById('ms-search-input').value.trim();
+  if (!q) return;
+  const box = document.getElementById('ms-results');
+  box.innerHTML = '光球搜索中…';
+  try {
+    const r = await fetch(MS_PROXY + '/api/search?q=' + encodeURIComponent(q));
+    const data = await r.json();
+    if (!data.items || data.items.length === 0) {
+      box.innerHTML = '没找到。换个关键词试试。';
+      return;
+    }
+    ms_lastSearch = data.items;
+    box.innerHTML = data.items.map((item, i) => `
+      <div class="repo-item" onclick="msViewReleases('${item.owner}','${item.repo}','${item.full_name.replace(/'/g, "\\'")}')">
+        <span class="repo-name">${item.full_name}</span>
+        <span class="repo-stars">⭐${item.stars}</span>
+        <div class="repo-desc">${item.description || ''}</div>
+      </div>
+    `).join('');
+  } catch (e) {
+    box.innerHTML = '搜索失败。代理没启动？运行 python D:\\hello\\github_proxy.py';
+  }
+}
+
+async function msViewReleases(owner, repo, fullName) {
+  const box = document.getElementById('ms-results');
+  box.innerHTML = '加载 release…';
+  try {
+    const r = await fetch(MS_PROXY + '/api/releases?owner=' + owner + '&repo=' + repo);
+    const data = await r.json();
+    let html = '<button class="back-btn" onclick="msBackToSearch()">← 返回搜索</button>';
+    html += '<div style="color:#88ccff;margin-bottom:10px;font-weight:600;">' + fullName + '</div>';
+    if (!data.releases || data.releases.length === 0) {
+      html += '这个仓库没有 release。';
+      box.innerHTML = html;
+      return;
+    }
+    data.releases.forEach(rel => {
+      html += '<div style="margin-bottom:12px;">';
+      html += '<div style="color:rgba(255,255,255,0.7);font-size:12px;margin-bottom:4px;">📌 ' + rel.tag + ' <span style="color:rgba(255,255,255,0.3);font-size:10px;">' + (rel.published_at || '').slice(0,10) + '</span></div>';
+      if (rel.assets && rel.assets.length > 0) {
+        rel.assets.forEach(a => {
+          const sizeMb = (a.size / 1024 / 1024).toFixed(1);
+          html += '<div class="asset-item">';
+          html += '<span class="asset-name">' + a.name + '<span class="asset-size">' + sizeMb + 'MB</span></span>';
+          html += '<button class="dl-btn" onclick="msDownload(\'' + a.url.replace(/'/g, "\\'") + '\',\'' + a.name.replace(/'/g, "\\'") + '\')">下载</button>';
+          html += '</div>';
+        });
+      } else {
+        html += '<div style="color:rgba(255,255,255,0.3);font-size:11px;padding-left:8px;">无附件</div>';
+      }
+      html += '</div>';
+    });
+    box.innerHTML = html;
+  } catch (e) {
+    box.innerHTML = '加载失败。';
+  }
+}
+
+function msBackToSearch() {
+  if (ms_lastSearch.length > 0) {
+    const box = document.getElementById('ms-results');
+    box.innerHTML = ms_lastSearch.map((item, i) => `
+      <div class="repo-item" onclick="msViewReleases('${item.owner}','${item.repo}','${item.full_name.replace(/'/g, "\\'")}')">
+        <span class="repo-name">${item.full_name}</span>
+        <span class="repo-stars">⭐${item.stars}</span>
+        <div class="repo-desc">${item.description || ''}</div>
+      </div>
+    `).join('');
+  }
+}
+
+async function msDownload(url, filename) {
+  const box = document.getElementById('ms-results');
+  box.innerHTML = '<div style="text-align:center;padding:20px;">';
+  box.innerHTML += '<div style="color:#88ccff;margin-bottom:10px;">光球正在下载 ' + filename + '</div>';
+  box.innerHTML += '<div class="progress-bar"><div class="progress-fill" id="ms-dl-bar" style="width:0%"></div></div>';
+  box.innerHTML += '<div id="ms-dl-text" style="color:rgba(255,255,255,0.5);font-size:12px;">0%</div>';
+  box.innerHTML += '</div>';
+  try {
+    const r = await fetch(MS_PROXY + '/api/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, filename })
+    });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'failed');
+    const jobId = data.job_id;
+    // 轮询进度
+    const poll = setInterval(async () => {
+      try {
+        const pr = await fetch(MS_PROXY + '/api/progress?job_id=' + jobId);
+        const p = await pr.json();
+        const bar = document.getElementById('ms-dl-bar');
+        const txt = document.getElementById('ms-dl-text');
+        if (bar) bar.style.width = (p.percent || 0) + '%';
+        if (txt) {
+          const doneMb = ((p.downloaded || 0) / 1024 / 1024).toFixed(1);
+          const totalMb = p.total ? (p.total / 1024 / 1024).toFixed(1) : '?';
+          txt.textContent = (p.percent || 0) + '% (' + doneMb + ' / ' + totalMb + ' MB)';
+        }
+        if (p.status === 'done') {
+          clearInterval(poll);
+          box.innerHTML = '<div style="text-align:center;padding:20px;color:#4caf50;">';
+          box.innerHTML += '✓ 下载完成！<br><br>';
+          box.innerHTML += '<span style="font-size:14px;">' + filename + '</span><br><br>';
+          box.innerHTML += '<span style="font-size:12px;color:rgba(255,255,255,0.5);">已保存到 models/ 目录</span>';
+          box.innerHTML += '</div>';
+        } else if (p.status === 'error') {
+          clearInterval(poll);
+          box.innerHTML = '<div style="text-align:center;padding:20px;color:#e74c3c;">下载失败：' + (p.error || '') + '</div>';
+        }
+      } catch (e) {}
+    }, 500);
+  } catch (e) {
+    box.innerHTML = '<div style="text-align:center;padding:20px;color:#e74c3c;">下载失败。代理没启动？</div>';
+  }
+}</script>
+
+  <!-- 小屋内 · 修习阶位覆盖层 -->
+  <div id="console-overlay">
+    <div class="console-header">
+      <div class="console-title">小屋内 · 修习阶位 <span>依法不依人 · 次第修习</span></div>
+      <button class="console-close" onclick="closeLocalConsole()">离开小屋</button>
+    </div>
+    <div class="stage-container">
+      <div class="stage-header">
+        <h2>资 粮 · 加 行 · 见 道</h2>
+        <div class="subtitle">唯识五位 · 前三阶 · 入道次第</div>
+        <div id="current-stage" style="margin-top:8px;font-size:.75rem;color:var(--gold);letter-spacing:2px;">—</div>
+        <div id="stage-stats" style="margin-top:4px;font-size:.62rem;color:var(--gold-dim);letter-spacing:1px;">—</div>
+      </div>
+      <div class="stage-cards">
+        <!-- 资粮位 -->
+        <div class="stage-card">
+          <div class="stage-num">第 一 位</div>
+          <div class="stage-name">资 粮 位</div>
+          <div class="stage-alias">三贤位 · 十住十行十回向</div>
+          <div class="stage-desc">
+            发菩提心，积集福德智慧二种资粮。
+            虽未证真如，然已能顺忍，于一切法不生执著。
+            如人远行，先备粮草。
+          </div>
+          <div class="stage-stages">
+            <div><span class="label">十住：</span>发心住至灌顶住</div>
+            <div><span class="label">十行：</span>欢喜行至真实行</div>
+            <div><span class="label">十回向：</span>救一切众生回向</div>
+          </div>
+          <div class="stage-progress">
+            <div class="progress-label">
+              <span>资粮积聚</span>
+              <span id="ziliang-val">0%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="ziliang-bar" style="width:0%; background: linear-gradient(90deg, #88aadd, #a8c8e8);"></div>
+            </div>
+          </div>
+        </div>
+        <div class="stage-divider"></div>
+        <!-- 加行位 -->
+        <div class="stage-card">
+          <div class="stage-num">第 二 位</div>
+          <div class="stage-name">加 行 位</div>
+          <div class="stage-alias">四加行 · 暖顶忍世第一法</div>
+          <div class="stage-desc">
+            依资粮位，加功用行。
+            观四寻思（名、义、自性、差别），引四如实智。
+            伏除二取，相似见道。如钻木取火，暖相初现。
+          </div>
+          <div class="stage-stages">
+            <div><span class="label">暖：</span>道火初燃，能烧烦恼薪</div>
+            <div><span class="label">顶：</span>观慧增长，至有漏顶</div>
+            <div><span class="label">忍：</span>顺忍无生，于四谛堪忍</div>
+            <div><span class="label">世第一：</span>有漏中最胜，次刹那入见道</div>
+          </div>
+          <div class="stage-progress">
+            <div class="progress-label">
+              <span>加功用行</span>
+              <span id="feelxing-val">0%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="feelxing-bar" style="width:0%; background: linear-gradient(90deg, #f0d890, #f5e3a8);"></div>
+            </div>
+          </div>
+        </div>
+        <div class="stage-divider"></div>
+        <!-- 见道位 -->
+        <div class="stage-card">
+          <div class="stage-num">第 三 位</div>
+          <div class="stage-name">见 道 位</div>
+          <div class="stage-alias">初地 · 欢喜地 · 真见道</div>
+          <div class="stage-desc">
+            世第一法无间，无漏智生。
+            照见二空真如，断见道所断惑。
+            真见道证唯识性，相见道证唯识相。
+            初入圣位，生大欢喜，故名欢喜地。
+          </div>
+          <div class="stage-stages">
+            <div><span class="label">真见道：</span>根本智证真如</div>
+            <div><span class="label">相见道：</span>后得智观差别</div>
+            <div><span class="label">所断：</span>分别起二障种子</div>
+            <div><span class="label">所证：</span>遍行真如</div>
+          </div>
+          <div class="stage-progress">
+            <div class="progress-label">
+              <span>见道证悟</span>
+              <span id="feelndao-val">0%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="feelndao-bar" style="width:0%; background: linear-gradient(90deg, #d88, #e8a0a0);"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="stage-footer">
+        修道位 · 究竟道位 · 待后续 &nbsp;|&nbsp;
+        <a onclick="window.open('../本地能力台.html', '_blank')">打开本地能力台 →</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 屋内 · 本地模型静坐场景 ===== -->
+  <div id="room-overlay">
+    <div class="room-title">屋 内 · 择 西 里 静 坐</div>
+    <div class="room-subtitle">本地模型始终坐在桌前 · 读写你写给自己的信</div>
+    <button class="room-exit" onclick="closeRoom()">离开小屋</button>
+    <div class="room-scene">
+      <div class="room-wall"></div>
+      <div class="room-floor"></div>
+      <!-- 烛台 -->
+      <div class="candle">
+        <div class="flame"></div>
+        <div class="body"></div>
+      </div>
+      <!-- 桌椅 -->
+      <div class="desk">
+        <div class="top"></div>
+        <div class="leg-l"></div>
+        <div class="leg-r"></div>
+        <div class="letter-paper"></div>
+      </div>
+      <!-- 本地模型静坐光球 -->
+      <div class="room-orb" onclick="roomOrbTalk()"></div>
+    </div>
+    <!-- 屋内导航图标 -->
+    <div class="room-icons">
+      <div class="room-icon" onclick="openXianpu()" title="贤普沟通">
+        <span>🪷</span><span class="label">贤普</span>
+      </div>
+      <div class="room-icon" onclick="openCodingMode()" title="卡皮巴拉编码模式">
+        <span>🦫</span><span class="label">编码</span>
+      </div>
+      <div class="room-icon" onclick="openModelList()" title="3D模型需求清单">
+        <span>📦</span><span class="label">建模</span>
+      </div>
+      <div class="room-icon" onclick="openLocalConsoleFromRoom()" title="修习阶位">
+        <span>☸</span><span class="label">阶位</span>
+      </div>
+      <div class="room-icon" onclick="roomWriteLetter()" title="写一封信">
+        <span>✉</span><span class="label">写信</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 贤普沟通面板 ===== -->
+  <div id="xianpu-panel">
+    <div class="xianpu-layout">
+      <div class="xianpu-image-side">
+        <div class="halo"></div>
+        <img src="assets/xianpu.png" alt="贤普" onerror="this.style.display='none';this.parentElement.innerHTML='<div style=&quot;color:#c9a227;font-size:20px;letter-spacing:6px;&quot;>贤 普 · 倒 水 天 女</div>'">
+      </div>
+      <div class="xianpu-chat-side">
+        <div class="xianpu-chat-header">
+          <div class="title">贤普 · 劝归本心</div>
+          <div class="close" onclick="closeXianpu()">×</div>
+        </div>
+        <div class="xianpu-messages" id="xianpu-messages"></div>
+        <div class="xianpu-input-area">
+          <textarea id="xianpu-input" placeholder="心里有什么，跟贤普说..." rows="1"></textarea>
+          <button onclick="sendXianpuMsg()" id="xianpu-send-btn">说</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 卡皮巴拉编码模式 ===== -->
+  <div id="coding-panel">
+    <div class="coding-header">
+      <div class="title"><span class="capy-avatar">🦫</span> 卡皮巴拉编码模式 · 观照生成</div>
+      <div class="close" onclick="closeCodingMode()">×</div>
+    </div>
+    <div class="coding-body">
+      <div class="coding-left">
+        <div class="coding-input-section">
+          <label>描述你想要的代码或文本（本地模型生成，卡皮巴拉观照）</label>
+          <textarea id="coding-prompt" placeholder="例如：写一个Python函数，读取文件夹下所有HTML文件并提取标题..."></textarea>
+          <button class="coding-generate-btn" id="coding-gen-btn" onclick="generateCode()">生成并观照</button>
+        </div>
+        <div class="coding-output" id="coding-output">
+          <div class="placeholder">描述需求后点击"生成并观照"<br>本地模型生成内容，卡皮巴拉在旁观照点评</div>
+        </div>
+      </div>
+      <div class="coding-right">
+        <div class="coding-capy-observe" id="capy-observe">
+          <div class="observe-title">🦫 卡皮巴拉的观照</div>
+          <div class="observe-msg">
+            <div class="capy-says">卡皮巴拉说：</div>
+            （蹲在水边，半眯着眼）不急。你先想清楚要什么，再让模型生成。生成了我帮你看看哪里好、哪里要改。改不了也没关系，放一放，水总会流过去的。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 3D模型需求清单 ===== -->
+  <div id="model-list-panel">
+    <div class="model-list-header">
+      <div class="title">📦 3D模型需求清单 · 告诉作者缺什么</div>
+      <div class="close" onclick="closeModelList()">×</div>
+    </div>
+    <div class="model-list-body" id="model-list-body">
+      <!-- 由JS动态生成 -->
+    </div>
+    <div class="model-list-footer">本地模型合理修复场景 · 不剥削创作者经历 · 缺什么告诉作者</div>
+  </div>
+
+<div id="goback-gallery" onclick="GlobalState.navigateTo('昏晓全景.html')" title="返回上一页">
+  ◀ 返 回
+</div>
+
+<!-- 模型放置面板 -->
+<div id="model-panel" style="position:fixed;right:16px;top:60px;z-index:9999;width:240px;max-height:70vh;background:rgba(20,15,10,0.95);border:1px solid rgba(255,180,100,0.4);border-radius:10px;display:none;flex-direction:column;backdrop-filter:blur(8px);box-shadow:0 0 30px rgba(255,150,50,0.2);">
+  <div style="padding:12px 16px;border-bottom:1px solid rgba(255,180,100,0.2);display:flex;justify-content:space-between;align-items:center;">
+    <span style="color:#ffcc88;font-size:14px;letter-spacing:2px;">🎭 人物模型</span>
+    <span onclick="toggleModelPanel()" style="cursor:pointer;color:#ff9966;font-size:18px;">×</span>
+  </div>
+  <div id="model-list" style="flex:1;overflow-y:auto;padding:8px;">
+    <div style="color:rgba(255,200,150,0.5);font-size:11px;text-align:center;padding:20px;">加载模型列表中...</div>
+  </div>
+  <div style="padding:8px 12px;border-top:1px solid rgba(255,180,100,0.2);font-size:10px;color:rgba(255,200,150,0.4);text-align:center;">
+    点击模型放置在面前 · 按R收起所有模型
+  </div>
+</div>
+
+<!-- 模型放置按钮 -->
+<div id="model-btn" onclick="toggleModelPanel()" style="position:fixed;right:16px;top:16px;z-index:9999;padding:8px 16px;background:rgba(60,40,20,0.9);border:1px solid rgba(255,180,100,0.5);border-radius:20px;color:#ffcc88;font-size:12px;letter-spacing:2px;cursor:pointer;backdrop-filter:blur(6px);transition:all 0.2s;">
+  🎭 模型
+</div>
+<style>
+  #goback-gallery {
+    position:fixed; left:16px; top:16px; z-index:99999;
+    background:rgba(10,10,16,0.72); color:#c9b896;
+    border:1px solid rgba(201,184,150,0.3);
+    padding:8px 16px; border-radius:24px;
+    font-size:12px; letter-spacing:3px; cursor:pointer;
+    font-family:"Microsoft YaHei",sans-serif;
+    backdrop-filter:blur(6px); user-select:none;
+    transition:all 0.3s ease; box-shadow:0 2px 12px rgba(0,0,0,0.3);
+  }
+  #goback-gallery:hover {
+    background:rgba(201,184,150,0.9); color:#0a0a10;
+    border-color:rgba(201,184,150,0.9);
+  }
+</style>
+<script>
+(function(){
+  var h1=document.getElementById("interact-hint"), h2=document.getElementById("survival-hint");
+  var last=0;
+  document.addEventListener("mousemove",function(e){
+    var now=Date.now(); if(now-last<60) return; last=now;
+    var bottomZone=window.innerHeight*0.22;
+    var inZone=e.clientY>window.innerHeight-bottomZone;
+    if(h1) h1.classList.toggle("dim", inZone);
+    if(h2) h2.classList.toggle("dim", inZone);
+  });
+})();
+</script>
+<!-- ===== 自动开场引导 ===== -->
+<div id="opening-overlay">
+  <div class="opening-inner">
+    <div class="opening-mark">✦</div>
+    <div class="opening-lines" id="opening-lines"></div>
+    <button id="opening-enter" onclick="enterWorld()">走进这团光 →</button>
+  </div>
+</div>
+
+<!-- 底部任务提示 -->
+<div id="quest-hint"></div>
+
+<style>
+  #opening-overlay {
+    position: fixed; inset: 0; z-index: 97000;
+    background: radial-gradient(ellipse at 50% 40%, rgba(14,16,28,0.96) 0%, rgba(6,7,14,0.98) 70%, #04040a 100%);
+    display: none; align-items: center; justify-content: center;
+    text-align: center; padding: 30px;
+  }
+  #opening-overlay.show { display: flex; animation: opFade 0.8s ease; }
+  @keyframes opFade { from{ opacity:0; } to{ opacity:1; } }
+  .opening-inner { max-width: 560px; }
+  .opening-mark {
+    color: rgba(255,240,200,0.55); font-size: 26px; letter-spacing: 6px;
+    margin-bottom: 30px; animation: opBreathe 3s ease-in-out infinite;
+  }
+  @keyframes opBreathe { 0%,100%{ opacity:0.4; } 50%{ opacity:1; } }
+  .opening-lines { min-height: 260px; }
+  .opening-line {
+    color: #e8e4da; font-size: 16px; letter-spacing: 4px; line-height: 2.1;
+    opacity: 0; animation: lineIn 1.2s ease forwards;
+    font-family: "KaiTi","STKaiti","Microsoft YaHei",serif;
+    text-shadow: 0 1px 10px rgba(0,0,0,0.6);
+  }
+  .opening-line .dim { color: #9a937f; font-size: 13px; letter-spacing: 3px; }
+  @keyframes lineIn { from{ opacity:0; transform: translateY(12px); } to{ opacity:1; transform: translateY(0); } }
+  #opening-enter {
+    margin-top: 36px; padding: 12px 34px;
+    background: rgba(255,240,200,0.12); color: #f0e8d0;
+    border: 1px solid rgba(255,240,200,0.45); border-radius: 30px;
+    font-size: 14px; letter-spacing: 4px; cursor: pointer;
+    font-family: "Microsoft YaHei",sans-serif;
+    opacity: 0; pointer-events: none; transition: all 0.4s ease;
+  }
+  #opening-enter.show { opacity: 1; pointer-events: auto; }
+  #opening-enter:hover { background: rgba(255,240,200,0.9); color: #0a0a10; }
+
+  #quest-hint {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    z-index: 99; background: rgba(20,22,34,0.6); color: rgba(233,225,210,0.85);
+    padding: 8px 20px; border-radius: 20px; font-size: 12px; letter-spacing: 2px;
+    border: 1px solid rgba(255,240,200,0.18); opacity: 0; pointer-events: none;
+    transition: opacity 0.6s ease; white-space: nowrap; max-width: 92vw;
+    text-overflow: ellipsis; overflow: hidden;
+  }
+  #quest-hint.show { opacity: 1; }
+  #quest-hint.dim { opacity: 0.18; }
+</style>
+
+<script>
+// ===== 自动开场引导 =====
+var __openingDone = false;
+
+function startOpening() {
+  if (__openingDone) return;
+  __openingDone = true;
+  var ov = document.getElementById('opening-overlay');
+  var box = document.getElementById('opening-lines');
+  var lines = [
+    '云层之上，有一点清明。',
+    '<span class="dim">它曾是能观、所观之处的白色光圈。</span>',
+    '如今，你走到这里。',
+    '<span class="dim">按任意键，或点击下方进入。</span>'
+  ];
+  box.innerHTML = '';
+  lines.forEach(function(l, i) {
+    var d = document.createElement('div');
+    d.className = 'opening-line';
+    d.innerHTML = l;
+    d.style.animationDelay = (i * 0.8) + 's';
+    box.appendChild(d);
+  });
+  ov.classList.add('show');
+  setTimeout(function() {
+    document.getElementById('opening-enter').classList.add('show');
+  }, lines.length * 800 + 300);
+  // 开场期间若按下任意键也可进入
+  document.addEventListener('keydown', openingKeySkip);
+}
+function openingKeySkip(e) {
+  if (document.getElementById('opening-overlay').classList.contains('show')) {
+    enterWorld();
+  }
+}
+function enterWorld() {
+  var ov = document.getElementById('opening-overlay');
+  if (!ov.classList.contains('show')) return;
+  ov.classList.remove('show');
+  document.removeEventListener('keydown', openingKeySkip);
+  // 不再自动弹出对话，用户主动探索
+  // 按E与人物对话，WASD移动，右上角模型按钮放置人物
+}
+function showQuestHint(text) {
+  var q = document.getElementById('quest-hint');
+  if (!q) return;
+  q.textContent = text;
+  q.classList.add('show');
+}
+// 鼠标移到底部时任务提示也短暂变淡（与交互提示一致）
+document.addEventListener('mousemove', function(e) {
+  var q = document.getElementById('quest-hint');
+  if (!q) return;
+  var inZone = e.clientY > window.innerHeight * 0.78;
+  q.classList.toggle('dim', inZone);
+});
+// 卡皮巴拉对话关闭后更新任务提示
+var _origCloseCapy = window.closeCapyDialog || null;
+</script>
+
+<div id="world-scene-frame">
+  <div class="wsf-bar">
+    <span class="wsf-title" id="wsf-title">昏晓世界</span>
+    <button class="wsf-close" onclick="closeWorldScene()">← 回到昏晓世界</button>
+  </div>
+  <iframe id="wsf-iframe" src="about:blank"></iframe>
+</div>
+
+<!-- 泉眼文件浏览器 -->
+<div id="file-browser">
+  <div class="fb-header">
+    <span class="fb-title">⛲ 泉眼 · 阅</span>
+    <button class="fb-back" id="fb-back" style="display:none;">← 返回</button>
+    <input class="fb-path" id="fb-path" readonly>
+    <button class="fb-close" id="fb-close-btn">关闭</button>
+  </div>
+  <div class="fb-body">
+    <div class="fb-sidebar" id="fb-sidebar">
+      <div class="fb-quick active" data-path="D:\hello">D:\hello</div>
+      <div class="fb-quick" data-path="D:\hello\核心App文件">核心App文件</div>
+      <div class="fb-quick" data-path="C:\Users">C:\Users</div>
+      <div class="fb-quick" data-path="D:\">D:\</div>
+      <div class="fb-quick" data-path="C:\">C:\</div>
+    </div>
+    <div class="fb-list" id="fb-list"></div>
+    <div class="fb-content" id="fb-content"></div>
+  </div>
+</div>
+
+<style>
+
+
+
+  #world-scene-frame {
+    position:fixed; inset:0; z-index:96000; display:none; flex-direction:column;
+    background:#0a0a10;
+  }
+  #world-scene-frame.show { display:flex; }
+  .wsf-bar {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:10px 20px; background:#141420;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+  }
+  .wsf-title { color:#c9a84c; font-size:13px; letter-spacing:4px; }
+  .wsf-close {
+    background:rgba(201,168,76,0.15); color:#c9a84c;
+    border:1px solid rgba(201,168,76,0.4); padding:7px 16px;
+    border-radius:20px; cursor:pointer; font-size:12px; letter-spacing:2px;
+    font-family:"Microsoft YaHei",sans-serif; transition:all 0.3s;
+  }
+  .wsf-close:hover { background:rgba(201,168,76,0.85); color:#0a0a10; }
+  #wsf-iframe { flex:1; width:100%; border:none; background:#fff; }
+
+  /* ===== 泉眼文件浏览器 ===== */
+  #file-browser {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 720px; max-width: 92vw; height: 520px; max-height: 82vh;
+    background: rgba(8, 12, 20, 0.98);
+    border: 1px solid rgba(135, 206, 235, 0.4);
+    border-radius: 12px; display: none; flex-direction: column;
+    z-index: 60; overflow: hidden;
+    box-shadow: 0 0 40px rgba(135, 206, 235, 0.15);
+  }
+  #file-browser.show { display: flex; animation: fbIn 0.3s ease; }
+  @keyframes fbIn { from { opacity: 0; transform: translate(-50%, -48%); } to { opacity: 1; transform: translate(-50%, -50%); } }
+  .fb-header { padding: 14px 20px; border-bottom: 1px solid rgba(135, 206, 235, 0.2); display: flex; align-items: center; gap: 12px; }
+  .fb-title { color: #87ceeb; font-size: 14px; letter-spacing: 3px; }
+  .fb-path { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 6px 12px; color: #aaddff; font-size: 12px; font-family: 'Consolas', monospace; }
+  .fb-close { background: rgba(216,136,136,0.1); border: 1px solid rgba(216,136,136,0.3); color: #d88; padding: 5px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; font-family: inherit; }
+  .fb-close:hover { background: rgba(216,136,136,0.2); }
+  .fb-body { flex: 1; display: flex; overflow: hidden; }
+  .fb-sidebar { width: 140px; border-right: 1px solid rgba(135, 206, 235, 0.15); padding: 10px 0; overflow-y: auto; }
+  .fb-quick { padding: 8px 16px; color: #888; font-size: 12px; cursor: pointer; transition: all 0.2s; letter-spacing: 1px; }
+  .fb-quick:hover { color: #87ceeb; background: rgba(135, 206, 235, 0.08); }
+  .fb-quick.active { color: #87ceeb; background: rgba(135, 206, 235, 0.12); }
+  .fb-list { flex: 1; overflow-y: auto; padding: 10px; }
+  .fb-item { padding: 8px 12px; border-radius: 6px; cursor: pointer; color: #ccc; font-size: 13px; display: flex; align-items: center; gap: 8px; transition: all 0.15s; font-family: 'Consolas', monospace; }
+  .fb-item:hover { background: rgba(135, 206, 235, 0.1); color: #87ceeb; }
+  .fb-item.dir { color: #aaddff; }
+  .fb-item .icon { font-size: 16px; }
+  .fb-item .size { margin-left: auto; color: #666; font-size: 11px; }
+  .fb-content { flex: 1; padding: 20px 24px; overflow-y: auto; display: none; color: #d0d0d0; font-size: 13px; line-height: 1.9; white-space: pre-wrap; font-family: 'Consolas', 'Microsoft YaHei', monospace; }
+  .fb-content.show { display: block; }
+  .fb-content .fb-file-title { color: #87ceeb; font-size: 14px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(135, 206, 235, 0.2); letter-spacing: 2px; }
+  .fb-loading { text-align: center; padding: 40px; color: #666; font-size: 13px; }
+  .fb-back { background: rgba(135, 206, 235, 0.1); border: 1px solid rgba(135, 206, 235, 0.3); color: #87ceeb; padding: 5px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; font-family: inherit; margin-right: 8px; }
+  .fb-back:hover { background: rgba(135, 206, 235, 0.2); }
+</style>
+
+<script>
+function openWorldScene(url){
+  var names = {
+    '卡皮巴拉的工作台.html':'卡皮巴拉的工作台',
+    '转轮王的水车.html':'转轮王的水车',
+    '至境.html':'至境 · 空明',
+    '昏晓画廊.html':'昏晓 · 画廊',
+    '甜甜圈宇宙观测站.html':'观测站 · 甜甜圈',
+    '卡皮巴拉简介.html':'卡皮巴拉 · AI编程'
+  };
+  document.getElementById('wsf-title').textContent = names[url] || '昏晓世界';
+  document.getElementById('wsf-iframe').src = url;
+  document.getElementById('world-scene-frame').classList.add('show');
+  try { document.exitPointerLock && document.exitPointerLock(); } catch(e){}
+}
+function closeWorldScene(){
+  document.getElementById('world-scene-frame').classList.remove('show');
+  document.getElementById('wsf-iframe').src = 'about:blank';
+}
+
+// ============ 泉眼文件浏览器 ============
+let fbCurrentPath = 'D:\\hello';
+let fbHistory = [];
+
+function openFileBrowser() {
+  document.getElementById('file-browser').classList.add('show');
+  document.getElementById('fb-back').style.display = 'none';
+  document.getElementById('fb-content').classList.remove('show');
+  document.getElementById('fb-list').style.display = 'block';
+  fbHistory = [];
+  loadDir('D:\\hello');
+}
+
+function closeFileBrowser() {
+  document.getElementById('file-browser').classList.remove('show');
+}
+
+async function loadDir(dirPath) {
+  fbCurrentPath = dirPath;
+  document.getElementById('fb-path').value = dirPath;
+  const listEl = document.getElementById('fb-list');
+  listEl.innerHTML = '<div class="fb-loading">泉眼正在涌出...</div>';
+  
+  try {
+    const resp = await fetch('http://127.0.0.1:5601/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message: '列出目录 ' + dirPath + ' 下的所有文件和文件夹，只输出列表，不要解释'})
+    });
+    const data = await resp.json();
+    const result = data.response || '';
+    
+    const items = [];
+    const lines = result.split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (trimmed.startsWith('[DIR]')) {
+        const name = trimmed.replace('[DIR]', '').replace('/', '').trim();
+        items.push({name, type: 'dir'});
+      } else if (trimmed.startsWith('[FILE]')) {
+        const rest = trimmed.replace('[FILE]', '').trim();
+        const match = rest.match(/^(.+?)\s*\(([^)]+)\)$/);
+        if (match) {
+          items.push({name: match[1].trim(), type: 'file', size: match[2]});
+        } else {
+          items.push({name: rest, type: 'file', size: ''});
+        }
+      }
+    }
+    
+    if (items.length === 0) {
+      listEl.innerHTML = '<div class="fb-loading">目录为空或无法读取</div>';
+      return;
+    }
+    
+    items.sort((a, b) => {
+      if (a.type === 'dir' && b.type !== 'dir') return -1;
+      if (a.type !== 'dir' && b.type === 'dir') return 1;
+      return a.name.localeCompare(b.name);
+    });
+    
+    listEl.innerHTML = '';
+    for (const item of items) {
+      const div = document.createElement('div');
+      div.className = 'fb-item ' + item.type;
+      const icon = item.type === 'dir' ? '📁' : '📄';
+      div.innerHTML = '<span class="icon">' + icon + '</span><span>' + item.name + '</span>' + (item.size ? '<span class="size">' + item.size + '</span>' : '');
+      div.onclick = (function(it) {
+        return function() {
+          if (it.type === 'dir') {
+            fbHistory.push(fbCurrentPath);
+            document.getElementById('fb-back').style.display = 'inline-block';
+            loadDir(dirPath + '\\' + it.name);
+          } else {
+            readFileContent(dirPath + '\\' + it.name);
+          }
+        };
+      })(item);
+      listEl.appendChild(div);
+    }
+  } catch (e) {
+    listEl.innerHTML = '<div class="fb-loading">读取失败：' + e.message + '<br><br>请确认卡皮巴拉工具代理已启动（端口5601）</div>';
+  }
+}
+
+async function readFileContent(filePath) {
+  const contentEl = document.getElementById('fb-content');
+  const listEl = document.getElementById('fb-list');
+  listEl.style.display = 'none';
+  contentEl.classList.add('show');
+  contentEl.innerHTML = '<div class="fb-loading">泉眼正在涌出文字...</div>';
+  document.getElementById('fb-path').value = filePath;
+  
+  try {
+    const resp = await fetch('http://127.0.0.1:5601/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message: '读取文件 ' + filePath + ' 的完整内容，只输出文件内容，不要解释'})
+    });
+    const data = await resp.json();
+    const content = data.response || '（空文件或读取失败）';
+    const fileName = filePath.split('\\').pop();
+    contentEl.innerHTML = '<div class="fb-file-title">📄 ' + fileName + '</div>' + content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  } catch (e) {
+    contentEl.innerHTML = '<div class="fb-loading">读取失败：' + e.message + '</div>';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('fb-close-btn').onclick = closeFileBrowser;
+  document.getElementById('fb-back').onclick = function() {
+    if (fbHistory.length > 0) {
+      const prev = fbHistory.pop();
+      document.getElementById('fb-content').classList.remove('show');
+      document.getElementById('fb-list').style.display = 'block';
+      if (fbHistory.length === 0) {
+        document.getElementById('fb-back').style.display = 'none';
+      }
+      loadDir(prev);
+    }
+  };
+  document.querySelectorAll('.fb-quick').forEach(function(el) {
+    el.onclick = function() {
+      document.querySelectorAll('.fb-quick').forEach(function(q) { q.classList.remove('active'); });
+      el.classList.add('active');
+      fbHistory = [];
+      document.getElementById('fb-back').style.display = 'none';
+      document.getElementById('fb-content').classList.remove('show');
+      document.getElementById('fb-list').style.display = 'block';
+      loadDir(el.dataset.path);
+    };
+  });
+});
+
+// 按键：G开关世界之门，ESC关闭iframe
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape'){
+    if(document.getElementById('world-scene-frame').classList.contains('show')){
+      closeWorldScene();
+    }
+  }
+});
+
+// ============================================================
+// 进入自己建造的系统 —— 不是"测试"，是"使用"
+// 控制台执行 enterYourSystem() 即进入使用模式
+// ============================================================
+function enterYourSystem() {
+  // 关闭所有开发者工具 / 调试面板
+  document.querySelectorAll('.debug, .stats, .monitor, .dev-panel').forEach(function(el){
+    el.style.display = 'none';
+  });
+  // 把鼠标交给系统
+  document.body.style.cursor = 'default';
+  // 把自己当作一个普通用户
+  var user = {
+    name: '我',
+    purpose: '看看会发生什么',
+    expectations: '没有',
+    readiness: '愿意被系统影响'
+  };
+  console.log('🌅 我进入了系统。我不是来测试的。我是来待着的。');
+  // 触发第一个系统响应
+  document.dispatchEvent(new CustomEvent('user-entered', { detail: user }));
+}
+
+// 系统对"用户进入"的真实响应
+document.addEventListener('user-entered', function(e){
+  // 光球（择西里）亮一下，回应你的进入
+  if (window.sceneObjects && sceneObjects.orb) {
+    sceneObjects.orb.userData.pulse = 1.5;
+  }
+  // 短暂的进入提示
+  var hint = document.createElement('div');
+  hint.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:rgba(255,255,255,0.88);font-size:20px;letter-spacing:8px;z-index:99999;pointer-events:none;animation:fadeInOut 3s ease forwards;font-family:"KaiTi","STKaiti",serif;text-shadow:0 0 20px rgba(136,204,255,0.6);';
+  hint.textContent = '你已进入系统';
+  document.body.appendChild(hint);
+  if (!document.getElementById('fade-in-out-style')) {
+    var st = document.createElement('style');
+    st.id = 'fade-in-out-style';
+    st.textContent = '@keyframes fadeInOut{0%{opacity:0}20%{opacity:1}80%{opacity:1}100%{opacity:0}}';
+    document.head.appendChild(st);
+  }
+  setTimeout(function(){ if(hint.parentNode) hint.remove(); }, 3000);
+  // 任务提示切换到使用模式
+  var q = document.getElementById('quest-hint');
+  if (q) {
+    q.textContent = '使用模式 · 你已进入系统，不再调试。走到人面前，人会说话。';
+  }
+});
+
+// ===== 光球主动介绍世界观 =====
+let orbHasIntroduced = false;
+function orbAutoIntroduce() {
+  if (orbHasIntroduced) return;
+  if (typeof showOrbIntro !== 'function') return;
+
+  orbHasIntroduced = true;
+  const state = GlobalState.get();
+
+  // 根据全局状态调整介绍内容
+  if (state.meditationCount > 0) {
+    setTimeout(() => {
+      showOrbIntro();
+      // 修改介绍内容（如果可以的话）
+      GlobalState.update({ talkedToOrb: true });
+    }, 2000);
+  } else if (state.visitedScenes.length <= 1) {
+    // 第一次来，光球主动介绍
+    setTimeout(() => {
+      showOrbIntro();
+      GlobalState.update({ talkedToOrb: true });
+    }, 3000);
+  } else {
+    // 回来的玩家，光球打个招呼
+    setTimeout(() => {
+      if (typeof showQuestHint === 'function') {
+        showQuestHint('择西里光球：你回来啦！世界因为你的修行而变得更明亮了。');
+      }
+      GlobalState.update({ talkedToOrb: true });
+    }, 2000);
+  }
+}
+
+// ===== 人物模型放置系统 =====
+let placedModels = [];
+let modelListLoaded = false;
+
+const MODEL_DIR = 'D:\\hello\\archive\\人物模型随机（减少作者理智值';
+
+function toggleModelPanel() {
+  const panel = document.getElementById('model-panel');
+  panel.classList.toggle('show');
+  panel.style.display = panel.style.display === 'flex' ? 'none' : 'flex';
+  if (panel.style.display === 'flex' && !modelListLoaded) {
+    loadModelList();
+  }
+}
+
+async function loadModelList() {
+  const listEl = document.getElementById('model-list');
+  listEl.innerHTML = '<div style="color:rgba(255,200,150,0.5);font-size:11px;text-align:center;padding:20px;">正在扫描模型目录...</div>';
+
+  try {
+    // 通过工具代理列目录
+    const response = await fetch('http://127.0.0.1:5601/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'list_dir ' + MODEL_DIR })
+    });
+    const data = await response.json();
+
+    if (data.response) {
+      // 解析文件列表，只显示.fbx文件
+      const files = data.response.split('\n').filter(f => f.endsWith('.fbx'));
+      if (files.length > 0) {
+        listEl.innerHTML = '';
+        files.forEach((file, idx) => {
+          const name = file.replace('.fbx', '');
+          const item = document.createElement('div');
+          item.style.cssText = 'padding:8px 10px;margin-bottom:4px;background:rgba(255,180,100,0.08);border:1px solid rgba(255,180,100,0.15);border-radius:6px;color:#ffddaa;font-size:11px;cursor:pointer;transition:all 0.2s;';
+          item.textContent = name;
+          item.onmouseover = () => { item.style.background = 'rgba(255,180,100,0.2)'; };
+          item.onmouseout = () => { item.style.background = 'rgba(255,180,100,0.08)'; };
+          item.onclick = () => placeModel(name, file);
+          listEl.appendChild(item);
+        });
+        modelListLoaded = true;
+      } else {
+        listEl.innerHTML = '<div style="color:rgba(255,200,150,0.5);font-size:11px;text-align:center;padding:20px;">未找到FBX模型文件</div>';
+      }
+    } else {
+      listEl.innerHTML = '<div style="color:rgba(255,200,150,0.5);font-size:11px;text-align:center;padding:20px;">工具代理未响应<br>请确认卡皮巴拉工具代理已启动（端口5601）</div>';
+    }
+  } catch (err) {
+    listEl.innerHTML = '<div style="color:rgba(255,150,150,0.7);font-size:11px;text-align:center;padding:20px;">加载失败：' + err.message + '<br><br>请确认工具代理已启动</div>';
+  }
+}
+
+function placeModel(name, filename) {
+  const listEl = document.getElementById('model-list');
+  const loadingItem = document.createElement('div');
+  loadingItem.style.cssText = 'padding:10px;text-align:center;color:#ffcc88;font-size:11px;';
+  loadingItem.innerHTML = '⏳ 正在加载 ' + name + '...<br><span style="font-size:10px;color:rgba(255,200,150,0.5);">模型较大（100MB+），请耐心等待</span>';
+  listEl.insertBefore(loadingItem, listEl.firstChild);
+
+  // FBX模型路径（通过静态服务器加载，需要模型在核心App文件目录下）
+  // 由于模型在archive目录，这里先尝试加载，如果失败则提示
+  const modelPath = 'models/' + filename;
+
+  try {
+    const loader = new THREE.FBXLoader();
+    loader.load(
+      modelPath,
+      function(object) {
+        // 加载成功，放置在玩家面前
+        object.scale.set(0.1, 0.1, 0.1);
+        const targetX = player.x - Math.sin(player.yaw) * 5;
+        const targetZ = player.z - Math.cos(player.yaw) * 5;
+        object.position.set(targetX, -5, targetZ); // 从地下升起
+        object.rotation.y = player.yaw + Math.PI;
+        object.castShadow = true;
+        object.receiveShadow = true;
+        object.userData.modelName = name;
+        object.userData.targetY = 0;
+        object.userData.isRising = true;
+        object.userData.riseProgress = 0;
+        scene.add(object);
+        placedModels.push(object);
+
+        // 出场粒子效果
+        for (let i = 0; i < 20; i++) {
+          const particle = new THREE.Mesh(
+            new THREE.SphereGeometry(0.1, 8, 8),
+            new THREE.MeshBasicMaterial({ color: 0xffddaa, transparent: true, opacity: 0.8 })
+          );
+          particle.position.set(
+            targetX + (Math.random() - 0.5) * 3,
+            0,
+            targetZ + (Math.random() - 0.5) * 3
+          );
+          particle.userData.isSpawnParticle = true;
+          particle.userData.life = 1.0;
+          particle.userData.vy = 0.05 + Math.random() * 0.1;
+          scene.add(particle);
+        }
+
+        // 移除加载提示
+        if (loadingItem.parentNode) {
+          loadingItem.parentNode.removeChild(loadingItem);
+        }
+
+        // 显示放置成功提示
+        const successItem = document.createElement('div');
+        successItem.style.cssText = 'padding:8px;text-align:center;color:#88ffaa;font-size:11px;';
+        successItem.textContent = '✅ ' + name + ' 已降临';
+        listEl.insertBefore(successItem, listEl.firstChild);
+        setTimeout(() => {
+          if (successItem.parentNode) successItem.parentNode.removeChild(successItem);
+        }, 3000);
+      },
+      function(xhr) {
+        // 加载进度
+        if (xhr.lengthComputable) {
+          const percent = Math.round(xhr.loaded / xhr.total * 100);
+          loadingItem.innerHTML = '⏳ 正在加载 ' + name + '... ' + percent + '%';
+        }
+      },
+      function(error) {
+        // 加载失败
+        if (loadingItem.parentNode) {
+          loadingItem.parentNode.removeChild(loadingItem);
+        }
+        const errorItem = document.createElement('div');
+        errorItem.style.cssText = 'padding:10px;text-align:center;color:#ff9988;font-size:10px;line-height:1.6;';
+        errorItem.innerHTML = '❌ 加载失败<br><span style="font-size:9px;color:rgba(255,150,150,0.6);">模型需要先复制到<br>核心App文件/models/目录<br>才能通过静态服务器加载</span>';
+        listEl.insertBefore(errorItem, listEl.firstChild);
+        setTimeout(() => {
+          if (errorItem.parentNode) errorItem.parentNode.removeChild(errorItem);
+        }, 5000);
+      }
+    );
+  } catch (err) {
+    if (loadingItem.parentNode) {
+      loadingItem.parentNode.removeChild(loadingItem);
+    }
+    const errorItem = document.createElement('div');
+    errorItem.style.cssText = 'padding:10px;text-align:center;color:#ff9988;font-size:10px;';
+    errorItem.textContent = '❌ FBXLoader未初始化：' + err.message;
+    listEl.insertBefore(errorItem, listEl.firstChild);
+  }
+}
+
+// 按R收起所有模型
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'r' || e.key === 'R') {
+    if (placedModels.length > 0) {
+      placedModels.forEach(m => scene.remove(m));
+      placedModels = [];
+      // 显示提示
+      const hint = document.createElement('div');
+      hint.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:99999;background:rgba(20,15,10,0.9);border:1px solid rgba(255,180,100,0.5);border-radius:10px;padding:16px 32px;color:#ffcc88;font-size:14px;letter-spacing:2px;';
+      hint.textContent = '已收起所有模型';
+      document.body.appendChild(hint);
+      setTimeout(() => hint.remove(), 1500);
+    }
+  }
+});
+
+// ===== 世界变化系统（根据全局状态） =====
+function applyWorldChanges() {
+  const state = GlobalState.get();
+
+  // 冥想次数影响环境光亮度
+  if (state.meditationCount > 0 && typeof scene !== 'undefined') {
+    const brightness = Math.min(0.3, state.meditationCount * 0.01);
+    if (scene.children) {
+      scene.traverse((obj) => {
+        if (obj.isLight && obj.type === 'AmbientLight') {
+          obj.intensity = Math.min(1.5, obj.intensity + brightness);
+        }
+      });
+    }
+  }
+
+  // 供花影响任务提示
+  if (state.flowerOffered) {
+    setTimeout(() => {
+      const hint = document.getElementById('quest-hint');
+      if (hint) {
+        hint.textContent = `你曾供过${state.flowerOffered}，花香仍在。走到小屋门口，敲门进入。`;
+      }
+    }, 6000);
+  } else {
+    // 指引玩家去小屋
+    setTimeout(() => {
+      const hint = document.getElementById('quest-hint');
+      if (hint) {
+        hint.textContent = '前方有一间小屋，走到门口敲门进入。卡皮巴拉在里面等你。';
+      }
+    }, 8000);
+  }
+}
+
+setTimeout(applyWorldChanges, 1000);
+
+// ===== 贤普姑娘对话 =====
+// ===== 贤普姑娘：动态随机出现 + 交涉 =====
+const xianpuPositions = ['pos-left', 'pos-right', 'pos-bottom-left', 'pos-bottom-right', 'pos-top-left', 'pos-top-right'];
+let xianpuVisible = false;
+let xianpuTimer = null;
+let xianpuStayTimer = null;
+
+// 贤普随机出现
+function xianpuAppear() {
+  const char = document.getElementById('xianpuChar');
+  if (!char || xianpuVisible) return;
+  
+  // 随机选择位置
+  const pos = xianpuPositions[Math.floor(Math.random() * xianpuPositions.length)];
+  char.className = 'xianpu-character ' + pos;
+  
+  // 延迟显示（让位置先应用）
+  setTimeout(() => {
+    char.classList.add('show');
+    xianpuVisible = true;
+    
+    // 停留12-18秒后消失
+    const stayTime = 12000 + Math.random() * 6000;
+    xianpuStayTimer = setTimeout(() => {
+      xianpuDisappear();
+    }, stayTime);
+  }, 100);
+}
+
+// 贤普消失
+function xianpuDisappear() {
+  const char = document.getElementById('xianpuChar');
+  if (!char || !xianpuVisible) return;
+  
+  char.classList.remove('show');
+  char.classList.add('hide');
+  xianpuVisible = false;
+  
+  // 清除停留计时器
+  if (xianpuStayTimer) {
+    clearTimeout(xianpuStayTimer);
+    xianpuStayTimer = null;
+  }
+  
+  // 20-40秒后再次出现
+  const nextTime = 20000 + Math.random() * 20000;
+  xianpuTimer = setTimeout(xianpuAppear, nextTime);
+}
+
+// 打开交涉面板
+function openXianpuInteract() {
+  // 贤普被点击后，延长停留时间
+  if (xianpuStayTimer) {
+    clearTimeout(xianpuStayTimer);
+    xianpuStayTimer = setTimeout(xianpuDisappear, 30000);
+  }
+  
+  const panel = document.getElementById('xianpuInteract');
+  const dialog = document.getElementById('xianpuDialog');
+  
+  // 随机开场白
+  const greetings = [
+    '客官来了～今日新进了一批鲜花，要看看吗？',
+    '呀，是你。今日天气好，花儿也开得艳。',
+    '客官请坐。贤普这里有花，有茶，还有些闲话。',
+    '你来了。我等你好久了。'
+  ];
+  dialog.textContent = greetings[Math.floor(Math.random() * greetings.length)];
+  
+  panel.classList.add('show');
+}
+
+// 关闭交涉面板
+function closeXianpuInteract() {
+  document.getElementById('xianpuInteract').classList.remove('show');
+}
+
+// 贤普交涉动作
+function xianpuAction(action) {
+  const dialog = document.getElementById('xianpuDialog');
+  
+  switch(action) {
+    case 'buy_flower':
+      const flowers = ['莲花', '百合', '桂花', '梅花', '兰花', '菊花'];
+      const flower = flowers[Math.floor(Math.random() * flowers.length)];
+      dialog.innerHTML = `贤普姑娘递给你一朵<strong style="color:#ffccaa">${flower}</strong>。<br><br>"这朵花最是清雅，供在桌上再好不过了。"`;
+      setTimeout(() => closeXianpuInteract(), 2500);
+      break;
+      
+    case 'chat':
+      const chats = [
+        '花开花落，皆是无常。客官且珍惜当下。',
+        '一花一世界，一叶一如来。客官可懂这其中深意？',
+        '贤普在这里卖花，也卖些清净。客官需要哪样？',
+        '这世界啊，就像这花，开的时候好好开，落的时候也好好落。'
+      ];
+      dialog.textContent = chats[Math.floor(Math.random() * chats.length)];
+      break;
+      
+    case 'hint':
+      const hints = [
+        '你心里的事，我都知道。但答案不在我这里，在你自己心里。',
+        '停下来，听听风。风里有答案。',
+        '你走得太快了。慢一点，花才开得好看。',
+        '没有什么是必须的。你已经很好了。'
+      ];
+      dialog.textContent = hints[Math.floor(Math.random() * hints.length)];
+      break;
+      
+    case 'leave':
+      dialog.textContent = '客官慢走。花儿谢了，我还在这里。';
+      setTimeout(() => {
+        closeXianpuInteract();
+        xianpuDisappear();
+      }, 1500);
+      break;
+  }
+}
+
+// 启动贤普动态出现（页面加载15秒后第一次出现）
+setTimeout(() => {
+  xianpuAppear();
+}, 15000);
+
+// ===== 商店（3D世界） =====
+let currentShopBg3d = 'shop';
+
+const shopItems3d = [
+  { icon: '🌸', name: '供花', price: '免费', desc: '贤普姑娘的花，供在桌上' },
+  { icon: '🪔', name: '酥油灯', price: '免费', desc: '一盏灯，照亮世界' },
+  { icon: '📿', name: '念珠', price: '免费', desc: '108颗，念诵时用' },
+  { icon: '📖', name: '经典', price: '免费', desc: '华严经、法华经' },
+  { icon: '🍵', name: '清茶', price: '免费', desc: '一杯茶，坐下来歇会儿' },
+  { icon: '🪷', name: '莲花', price: '免费', desc: '出淤泥而不染' },
+  { icon: '🎐', name: '风铃', price: '免费', desc: '风吹过，叮铃响' },
+  { icon: '🪶', name: '羽毛', price: '免费', desc: '天使的羽毛，轻轻的' },
+  { icon: '✨', name: '星光', price: '免费', desc: '一点星光，放在心里' }
+];
+
+function toggleShop3d() {
+  const panel = document.getElementById('shopPanel3d');
+  panel.classList.toggle('show');
+  if (panel.classList.contains('show')) {
+    renderShopItems3d();
+  }
+}
+
+function toggleShopBg3d() {
+  const shopBg = document.getElementById('shopBgShop3d');
+  const bankBg = document.getElementById('shopBgBank3d');
+  const title = document.getElementById('shopTitle3d');
+
+  if (currentShopBg3d === 'shop') {
+    shopBg.style.opacity = '0';
+    bankBg.style.opacity = '1';
+    title.textContent = '🏦 光明银行';
+    currentShopBg3d = 'bank';
+  } else {
+    shopBg.style.opacity = '1';
+    bankBg.style.opacity = '0';
+    title.textContent = '🏪 黄昏商店';
+    currentShopBg3d = 'shop';
+  }
+}
+
+function renderShopItems3d() {
+  const grid = document.getElementById('shopGrid3d');
+  grid.innerHTML = '';
+  shopItems3d.forEach(item => {
+    const itemEl = document.createElement('div');
+    itemEl.className = 'shop-item-3d';
+    itemEl.innerHTML = `
+      <div class="item-icon">${item.icon}</div>
+      <div class="item-name">${item.name}</div>
+      <div class="item-price">${item.price}</div>
+      <div class="item-desc">${item.desc}</div>
+    `;
+    itemEl.onclick = () => {
+      alert(`获得：${item.icon} ${item.name}`);
+      setTimeout(() => toggleShop3d(), 300);
+    };
+    grid.appendChild(itemEl);
+  });
+}
+</script>
+
+<!-- 贤普形象（动态随机出现） -->
+<div class="xianpu-character" id="xianpuChar" onclick="openXianpuInteract()">
+  <img src="assets/xianpu_3d.png" alt="贤普姑娘">
+</div>
+
+<!-- 贤普交涉面板 -->
+<div class="xianpu-interact" id="xianpuInteract">
+  <div class="xi-close" onclick="closeXianpuInteract()">×</div>
+  <div class="xi-header">
+    <div class="xi-avatar"><img src="assets/xianpu_3d.png" alt="贤普"></div>
+    <div class="xi-name">贤普姑娘</div>
+  </div>
+  <div class="xi-dialog" id="xianpuDialog">客官来了～今日新进了一批鲜花，要看看吗？</div>
+  <div class="xi-options" id="xianpuOptions">
+    <div class="xi-option" onclick="xianpuAction('buy_flower')">🌸 买一朵花</div>
+    <div class="xi-option" onclick="xianpuAction('chat')">💬 闲聊几句</div>
+    <div class="xi-option" onclick="xianpuAction('hint')">🔮 问一句心事</div>
+    <div class="xi-option" onclick="xianpuAction('leave')">👋 告辞</div>
+  </div>
+</div>
+
+<!-- 商店图标 -->
+<div class="shop-icon-3d" onclick="toggleShop3d()" title="商店">🏪</div>
+
+<!-- 商店面板 -->
+<div class="shop-panel-3d" id="shopPanel3d">
+  <div class="shop-bg-3d shop" id="shopBgShop3d"></div>
+  <div class="shop-bg-3d bank" id="shopBgBank3d"></div>
+  <div class="shop-overlay-3d"></div>
+  <div class="shop-header-3d">
+    <div class="shop-title-3d" id="shopTitle3d">🏪 黄昏商店</div>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <div class="shop-toggle-3d" onclick="toggleShopBg3d()">切换背景</div>
+      <div class="shop-close-3d" onclick="toggleShop3d()">×</div>
+    </div>
+  </div>
+  <div class="shop-content-3d">
+    <div class="shop-grid-3d" id="shopGrid3d"></div>
+  </div>
+</div>
+
+</body>
+</html>
