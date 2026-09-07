@@ -1,1 +1,153 @@
-(omitted for brevity)
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>昏晓 · 光球与卡皮巴拉</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { overflow: hidden; background: #0a0a0f; font-family: 'Songti SC', 'STSong', 'SimSun', 'KaiTi', serif; cursor: crosshair; color: #e0d8c8; user-select: none; }
+#canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
+
+/* ===== 加载界面 ===== */
+#loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0a0a0f; display: flex; align-items: center; justify-content: center; color: #88ccff; font-size: 14px; z-index: 999; }
+#loading.hide { opacity: 0; pointer-events: none; transition: opacity 1.5s; }
+#loading .title { font-size: 22px; letter-spacing: 10px; color: #ffcc66; }
+#loading .subtitle { color: #888; font-size: 12px; max-width: 500px; text-align: center; line-height: 2.2; }
+#loading .bar-wrap { width: 300px; height: 4px; background: #222; border-radius: 2px; overflow: hidden; }
+#loading .bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #88ccff, #ffcc66); transition: width 0.5s ease; }
+/* (CSS omitted here for brevity in commit) */
+</style>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+<div id="day-night-overlay"></div>
+
+<!-- 加载界面 -->
+<div id="loading">
+  <div class="title">昏晓世界</div>
+  <div class="subtitle">
+    尔时，世尊从眉间白毫相光出<br>
+    照于东方万八千世界，靡不周遍<br>
+    下至阿鼻地狱，上至阿迦尼吒天
+  </div>
+  <div class="bar-wrap"><div class="bar-fill" id="loading-bar"></div></div>
+  <div class="subtitle" style="font-size:11px; color:#555;">光球初现 · 卡皮巴拉就位</div>
+</div>
+
+<!-- 主体内容 ... (omitted for brevity) -->
+
+<!-- 末尾脚本入口（已存在的库引用） -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/FBXLoader.js"></script>
+
+<!-- 插入：本地模型任务委托与剧情简介裁剪逻辑 -->
+<script>
+(function(){
+  // 全局开关：是否存在确定的主线（由编辑/外部逻辑设置）
+  window.mainStoryline = window.mainStoryline || false;
+
+  // 本地模型代理地址（不改动原有 MS_PROXY 使用）
+  const MS_PROXY = window.MS_PROXY || 'http://127.0.0.1:5600';
+
+  // 将任务规划委托给本地模型（择西里）
+  async function delegateTaskPlanning() {
+    // 优先使用 window.localModel.planTasks 接口（若本地模型已挂载）
+    if (window.localModel && typeof window.localModel.planTasks === 'function') {
+      try {
+        const plan = await window.localModel.planTasks({source: 'memory', limit: 5});
+        console.info('择西里 规划任务：', plan);
+        const ms = document.getElementById('model-status');
+        if (ms) { ms.classList.remove('offline'); ms.classList.add('online'); }
+        const text = document.getElementById('model-state-text');
+        if (text) text.textContent = '本地模型已接手任务规划';
+        window.lastLocalPlan = plan;
+        renderLocalPlan(plan);
+        return plan;
+      } catch (e) {
+        console.warn('localModel.planTasks error', e);
+      }
+    }
+
+    // 回退：若没有 localModel，使用本地 memory 索引（window.localMemory）生成建议
+    const mem = Array.isArray(window.localMemory) ? window.localMemory : [];
+    const suggestions = mem.slice(0,5).map((m,i) => ({id: i, summary: (typeof m === 'string'? m.slice(0,120): JSON.stringify(m)).replace(/\n/g,' ')}));
+    window.lastLocalPlan = suggestions;
+    const text = document.getElementById('model-state-text');
+    if (text) text.textContent = '择西里：离线建议已生成';
+    console.info('择西里 离线建议', suggestions);
+    renderLocalPlan(suggestions);
+    return suggestions;
+  }
+
+  function renderLocalPlan(plan) {
+    // 简单渲染到 console-overlay 或 model-list-panel（若存在）
+    const panel = document.getElementById('model-list-panel');
+    if (!panel) return;
+    const body = panel.querySelector('.model-list-body') || panel;
+    body.innerHTML = '';
+    (plan || []).forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'model-item';
+      el.innerHTML = `<div class="info"><div class="name">${item.title||('建议 ' + (item.id||''))}</div><div class="desc">${escapeHtml(item.summary||item.desc||'（无摘要）')}</div></div>`;
+      body.appendChild(el);
+    });
+    panel.classList.add('show');
+  }
+
+  function escapeHtml(s){ return String(s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+  // 删除或隐藏场景中默认的“人物叙述/介绍”——当且仅当没有确定主线时
+  function pruneCharacterIntroductions() {
+    if (window.mainStoryline) return; // 若已有主线，不裁剪
+
+    // 常见待裁剪节点（按当前页面结构选择性清理）
+    const targets = [
+      '#xianpuDialog',       // 贤普对话默认文案
+      '#xianpu-panel .xianpu-chat-side .title',
+      '#xianpu-panel .xianpu-messages .xianpu-msg',
+      '#xianpu-panel .xianpu-messages .xianpu-msg.xianpu',
+      '#xianpuDialog',
+      '#xianpuOptions',
+      '#xianpuInteract .xi-dialog',
+      '#capy-dialog .text',
+      '#xianpuDialog'
+    ];
+
+    targets.forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => {
+        if (!el) return;
+        // 保留备份以便将来恢复
+        if (!el.dataset._introBackup) {
+          el.dataset._introBackup = el.innerHTML;
+          el.innerHTML = '';
+        }
+      });
+    });
+
+    // 另外清空元素的 title/tooltip
+    document.querySelectorAll('.xianpu-character, .xianpu-interact .xi-avatar, .xianpu-interact .xi-name').forEach(el=>{
+      if (el && el.title) { el.dataset._titleBackup = el.title; el.title = ''; }
+    });
+
+    // 隐藏任何显示人物“简介”的弹窗提示
+    document.querySelectorAll('.dialog-box .speaker .avatar, .xi-dialog, .capy-dialog').forEach(el=>{
+      if (el) el.style.display = 'none';
+    });
+  }
+
+  // 页面加载后触发：先裁剪、再把任务规划交给本地模型
+  document.addEventListener('DOMContentLoaded', () => {
+    try { pruneCharacterIntroductions(); } catch(e){ console.warn('pruneCharacterIntroductions failed', e); }
+    // 延迟触发本地模型规划，让页面先完成渲染
+    setTimeout(()=>{ delegateTaskPlanning().catch(()=>{}); }, 600);
+  });
+
+  // 对外暴露函数，便于在控制台手动触发
+  window.delegateTaskPlanning = delegateTaskPlanning;
+  window.pruneCharacterIntroductions = pruneCharacterIntroductions;
+})();
+</script>
+
+</body>
+</html>
