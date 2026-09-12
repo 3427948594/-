@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>镜像回放 · 净土镜像</title>
+<style>
+  :root{--bg:#0b0b0b;--card:#091217;--accent:#7ee8ff;--muted:#8a7a5a}
+  *{box-sizing:border-box}
+  body{font-family: 'Noto Serif SC', 'Songti SC', serif;background:var(--bg);color:#dfeff6;padding:20px;}
+  .wrap{max-width:980px;margin:0 auto}
+  h1{letter-spacing:6px;color:var(--accent);font-size:1.05rem}
+  .row{display:flex;gap:14px;margin-top:12px}
+  .col{background:linear-gradient(180deg,#071017, #0b1014);border-radius:12px;padding:14px;border:1px solid rgba(126,232,255,0.06)}
+  .left{flex:1;min-width:320px}
+  .right{flex:1.2;min-width:380px}
+  label{display:block;margin:10px 0 6px;color:var(--muted);font-size:0.85rem}
+  select,input[type=range],textarea,button{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(126,232,255,0.06);background:transparent;color:inherit}
+  textarea{min-height:120px;font-family:inherit}
+  .mem-list{max-height:240px;overflow:auto;border-radius:8px;padding:8px;background:rgba(0,0,0,0.12);}
+  .mem-item{display:flex;align-items:flex-start;gap:8px;padding:6px;border-bottom:1px solid rgba(126,232,255,0.03)}
+  .mem-item .txt{font-size:0.92rem;color:#d4d4d4}
+  .controls{display:flex;gap:8px;margin-top:10px}
+  .btn{background:rgba(126,232,255,0.06);border:1px solid rgba(126,232,255,0.12);padding:8px 12px;border-radius:8px;color:var(--accent);cursor:pointer}
+  .btn.warn{color:#ffb76b}
+  .out{white-space:pre-wrap;background:rgba(255,255,255,0.02);padding:12px;border-radius:8px;margin-top:10px;border:1px solid rgba(126,232,255,0.03)}
+  .footer{margin-top:18px;color:#a0b0b8;font-size:0.82rem}
+  .fixed-note{position:fixed;left:20px;bottom:18px;background:rgba(4,10,14,0.9);padding:10px 14px;border-radius:10px;border:1px solid rgba(126,232,255,0.06);color:#9fcff0}
+  .danger{color:#ff9aa2}
+  .tag{font-size:0.72rem;color:var(--muted);padding:4px 8px;border-radius:6px;background:rgba(255,255,255,0.02)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>镜像回放 · 净土镜像</h1>
+  <p style="color:#9fb2bf">本页为纯前端体验（B 方案），使用 localStorage 中的本地记忆条目进行镜像与引导。不会联网，不需要模型或索引。</p>
+  <div class="row">
+    <div class="col left">
+      <label>模式</label>
+      <select id="mode">
+        <option value="mirror">Mirror（镜像回放）</option>
+        <option value="transform">Transform（引导放下）</option>
+        <option value="hybrid">合成（先镜像再引导）</option>
+      </select>
+
+      <label>强度（0 - 100）</label>
+      <input type="range" id="intensity" min="0" max="100" value="60" />
+      <div style="display:flex;justify-content:space-between;color:var(--muted);font-size:0.86rem;margin-top:6px"><span>轻柔</span><span id="intVal">60</span><span>逼真</span></div>
+
+      <label>可用记忆池（从 localStorage 读取，勾选要包含的条目）</label>
+      <div class="mem-list" id="memList"></div>
+
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn" id="btnSelectAll">全选</button>
+        <button class="btn" id="btnDeselectAll">取消</button>
+        <button class="btn" id="btnExport">导出记忆（JSON）</button>
+        <button class="btn warn" id="btnClear">清空所有记忆</button>
+      </div>
+
+      <label style="margin-top:12px">对话 / 说明（你可以写想听过去的哪一段，或写当下感受）</label>
+      <textarea id="userInput" placeholder="我想听过去的自己如何描述那次失误……"></textarea>
+
+      <div class="controls">
+        <button class="btn" id="btnGen">生成回放</button>
+        <button class="btn" id="btnMark">标记已放下 · 回向</button>
+      </div>
+
+      <div class="footer">
+        <div>本地键：<span class="tag">zexili_drone</span> <span class="tag">zexili_idle_work</span> <span class="tag">zexili_pureland_drawing</span></div>
+        <div style="margin-top:8px;color:#9aaab2">注意：本页为体验原型。任何记忆都可导出或清空；页面底部常驻免责声明与求助提示。</div>
+      </div>
+    </div>
+
+    <div class="col right">
+      <label>生成结果</label>
+      <div id="out" class="out">尚未生成</div>
+
+      <label style="margin-top:12px">使用到的记忆片段（引用）</label>
+      <div id="used" class="out">—</div>
+
+      <label style="margin-top:12px">操作日志</label>
+      <div id="log" class="out">初始化……</div>
+    </div>
+  </div>
+
+  <div style="margin-top:14px;color:#9aaab2">当体验满意后，可升级为 C：把检索层换为向量检索并接入本地 LLM，得到更自然与连贯的镜像效果。</div>
+</div>
+
+<div class="fixed-note">不是专业心理治疗 · 若有紧急危机请联系当地紧急服务或求助热线。</div>
+
+<script>
+// ---------- 配置 ----------
+const STORE_KEYS = ['zexili_drone','zexili_idle_work','zexili_pureland_drawing'];
+const CRISIS_WORDS = ['自杀','想死','轻生','割腕','寻死','结束自己','跳楼','伤害自己','杀自己','自残'];
+
+// 简单场景叙事備选（若 REALMS 未直接可用时作为补充）
+const FALLBACK_REALMS = [
+  {name:'昏晓世界',desc:'昏晓之际，世界从无明中浮起。'},
+  {name:'小屋内景',desc:'贤普姑娘的花店，屋内暖光。'},
+  {name:'孤岛',desc:'内心孤岛，四面是水，水上是你自己。'},
+];
+
+// ---------- 工具 ----------
+function loadLocalJson(key){ try{ const raw=localStorage.getItem(key); if(!raw) return null; return JSON.parse(raw); }catch(e){return null;} }
+function saveLocalJson(key,obj){ try{ localStorage.setItem(key, JSON.stringify(obj)); }catch(e){} }
+function nowTime(){ return new Date().toLocaleTimeString().slice(0,5); }
+
+// ---------- 初始化记忆池 ----------
+let MEMS = []; // {id,source,time,type,text,meta,settled}
+function buildMemoryPool(){
+  MEMS = [];
+  STORE_KEYS.forEach(k => {
+    const d = loadLocalJson(k);
+    if(!d) return;
+    // handle possible shapes: the pages earlier store object with counts/entries
+    if(Array.isArray(d)){
+      d.forEach((it,idx)=> MEMS.push({id: `${k}#${idx}`, source:k, time: it.time||null, type:'entry', text: it.msg||it.text||JSON.stringify(it), meta:it, settled:false}));
+    } else if(d.entries && Array.isArray(d.entries)){
+      d.entries.forEach((it,idx)=> MEMS.push({id:`${k}#${idx}`, source:k, time: it.time||null, type:'entry', text: it.msg||it.text||JSON.stringify(it), meta:it, settled: !!it.settled}));
+    } else if(d.counts && d.entries){
+      d.entries.forEach((it,idx)=> MEMS.push({id:`${k}#${idx}`, source:k, time: it.time||null, type:'entry', text: it.msg||it.text||JSON.stringify(it), meta:it, settled: !!it.settled}));
+    } else if(d.text){
+      MEMS.push({id:k, source:k, time:null, type:'doc', text: d.text, meta:d, settled:false});
+    } else {
+      // raw object -> stringify
+      MEMS.push({id:k, source:k, time:null, type:'doc', text: JSON.stringify(d), meta:d, settled:false});
+    }
+  });
+  // add fallback realms as synthetic memories
+  FALLBACK_REALMS.forEach((r,i)=> MEMS.push({id:`realm#${i}`, source:'REALMS', time:null, type:'realm', text: `${r.name} — ${r.desc}`, meta:r, settled:false}));
+}
+
+function renderMemList(){
+  const list = document.getElementById('memList');
+  list.innerHTML = '';
+  if(MEMS.length===0){ list.innerHTML = '<div style="padding:8px;color:#99a">没有可用记忆（localStorage 为空）</div>'; return; }
+  MEMS.forEach(m => {
+    const el = document.createElement('div'); el.className='mem-item';
+    const cb = document.createElement('input'); cb.type='checkbox'; cb.dataset.id = m.id; cb.checked = !m.settled;
+    const text = document.createElement('div'); text.className='txt'; text.textContent = (m.time?('['+m.time+'] '):'') + m.text;
+    if(m.settled){ const t = document.createElement('div'); t.style.fontSize='0.75rem'; t.style.color='#7b8b7b'; t.textContent='已放下'; el.appendChild(cb); el.appendChild(text); el.appendChild(t); }
+    else { el.appendChild(cb); el.appendChild(text); }
+    list.appendChild(el);
+  });
+}
+
+// ---------- 简单危机词检测 ----------
+function detectCrisis(text){ if(!text) return false; const s=text.toString(); return CRISIS_WORDS.some(w=> s.indexOf(w)!==-1); }
+
+// ---------- 生成模板（纯文本，不联网） ----------
+function generateResponse(mode, intensity, selectedIds, userInput){
+  const selected = MEMS.filter(m=> selectedIds.includes(m.id));
+  // pick count by intensity
+  const n = Math.min(8, Math.max(1, Math.round((intensity/100)*6)+1));
+  const use = selected.slice(0,n);
+  if(use.length===0) return {out:'未选择任何记忆片段，无法生成。', used:[]};
+
+  // Mirror: 以第一人称复述记忆（保留原句，轻度润色依据强度）
+  function mirrorText(m){
+    const base = m.text;
+    if(intensity>75) return `（过去的我）我记得："${base}"`;
+    if(intensity>40) return `我曾这样想："${base}"`;
+    return `当时的记忆："${base}"`;
+  }
+
+  // Transform: 同理+反思问题+短练习
+  function transformText(list){
+    const empath = '我听到你的经历，感受到当时的纠结与不易。';
+    const probs = [
+      '当时你最担心/害怕的是什么？',
+      '如果现在回头看，你能发现当时有哪些信息是当时特有的，而现在已不同？',
+      '如果把那件事当作一段旅程的一部分，你会对那段旅程说什么？'
+    ];
+    const practice = `练习：闭眼 60 秒，缓慢数呼吸 6 次；写下一句对过去自己的肯定句（不超过 12 字），然后把它放入“净土图纸”（标记为已放下）。`;
+    return empath + '\n\n反思问题：\n- ' + probs.join('\n- ') + '\n\n' + practice;
+  }
+
+  let out='';
+  if(mode==='mirror'){
+    out += use.map(m=>mirrorText(m)).join('\n\n');
+    out += '\n\n（这是基于你本地记忆的镜像回放，强度 ' + intensity + '）';
+  } else if(mode==='transform'){
+    out += transformText(use);
+  } else {
+    // hybrid
+    out += use.map(m=>mirrorText(m)).join('\n\n');
+    out += '\n\n--- 接下来是引导：\n\n' + transformText(use);
+  }
+
+  // optionally weave userInput lightly when intensity low
+  if(userInput && mode!=='mirror' && intensity<30){ out = userInput + '\n\n' + out; }
+
+  return {out, used:use};
+}
+
+// ---------- UI 事件 ----------
+function writeLog(s){ const log = document.getElementById('log'); log.textContent = nowTime() + ' · ' + s + '\n' + log.textContent; }
+
+function init(){
+  buildMemoryPool();
+  renderMemList();
+  writeLog('pool built: ' + MEMS.length + ' items');
+}
+
+// controls
+document.getElementById('intensity').addEventListener('input', (e)=>{ document.getElementById('intVal').textContent = e.target.value; });
+
+document.getElementById('btnSelectAll').addEventListener('click', ()=>{ document.querySelectorAll('#memList input[type=checkbox]').forEach(cb=>cb.checked=true); });
+document.getElementById('btnDeselectAll').addEventListener('click', ()=>{ document.querySelectorAll('#memList input[type=checkbox]').forEach(cb=>cb.checked=false); });
+
+document.getElementById('btnExport').addEventListener('click', ()=>{
+  const json = JSON.stringify(MEMS,null,2);
+  const blob = new Blob([json],{type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'memories_export.json'; a.click(); URL.revokeObjectURL(url);
+  writeLog('导出 ' + MEMS.length + ' 条记忆');
+});
+
+document.getElementById('btnClear').addEventListener('click', ()=>{
+  if(!confirm('确认清空所有本地记忆（不会影响其他 localStorage 键）？')) return;
+  STORE_KEYS.forEach(k=> localStorage.removeItem(k));
+  buildMemoryPool(); renderMemList(); writeLog('已清空 local keys: ' + STORE_KEYS.join(','));
+});
+
+// 生成
+document.getElementById('btnGen').addEventListener('click', ()=>{
+  const mode = document.getElementById('mode').value;
+  const intensity = Number(document.getElementById('intensity').value);
+  const userInput = document.getElementById('userInput').value || '';
+  // collect selected
+  const selected = Array.from(document.querySelectorAll('#memList input[type=checkbox]')).filter(cb=>cb.checked).map(cb=>cb.dataset.id);
+  // crisis detection
+  if(detectCrisis(userInput) || selected.some(id=>{ const m = MEMS.find(x=>x.id===id); return detectCrisis(m && m.text); } )){
+    document.getElementById('out').textContent = '检测到可能的危机或自伤/自杀相关内容。此功能暂不处理危机情况。\n请立即联系当地紧急服务或寻求专业帮助。';
+    writeLog('生成被中止：危机词触发');
+    return;
+  }
+  if(selected.length===0){ document.getElementById('out').textContent = '请至少选择一条记忆片段再生成。'; return; }
+  const res = generateResponse(mode,intensity,selected,userInput);
+  document.getElementById('out').textContent = res.out;
+  document.getElementById('used').textContent = res.used.map(u=> (u.time?('['+u.time+'] '):'') + u.text ).join('\n\n');
+  writeLog('生成成功（mode='+mode+', items='+res.used.length+')');
+});
+
+// 标记已放下（对当前选中的记忆打标；并写回到 localStorage 相关 entries 如果可能）
+document.getElementById('btnMark').addEventListener('click', ()=>{
+  const selected = Array.from(document.querySelectorAll('#memList input[type=checkbox]')).filter(cb=>cb.checked).map(cb=>cb.dataset.id);
+  if(selected.length===0){ alert('请先勾选要标记的记忆'); return; }
+  // mark in MEMS
+  selected.forEach(id=>{ const m = MEMS.find(x=>x.id===id); if(m){ m.settled=true; if(m.meta) m.meta.settled = true; } });
+  // attempt to write back to their source localStorage structure
+  STORE_KEYS.forEach(k=>{
+    const raw = loadLocalJson(k);
+    if(raw && raw.entries && Array.isArray(raw.entries)){
+      raw.entries.forEach(e=>{ const id = k + '#' + raw.entries.indexOf(e); if(selected.includes(id)){ e.settled = true; } });
+      saveLocalJson(k, raw);
+    }
+  });
+  renderMemList(); writeLog('标记已放下：' + selected.length + ' 条');
+  alert('已标记并回向（本地）。你可以在净土图纸或日志中查看变更。');
+});
+
+// 初始化
+init();
+</script>
+</body>
+</html>
